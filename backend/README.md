@@ -1,4 +1,4 @@
-# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 + M4.1 (Atlas, ingestion, embeddings, filtered hybrid search, evaluation)
+# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 + M4.1 + M4.1.1 (Atlas, ingestion, embeddings, tuned hybrid search, evaluation)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
@@ -10,10 +10,13 @@ Reciprocal Rank Fusion — same route, same request shape. **M3.2** adds
 optional `filters` (industry/city/state/nature/sub_category), validated
 against a live, cached DB allow-list — closes the NoSQL-injection-shaped gap
 the architecture review flagged. **M4.1** adds a golden-query evaluation
-framework (Precision@K, Recall@K, MRR) comparing vector-only vs hybrid —
-the evidence M4.2's reranking decision will be gated on. Cross-encoder
-reranking itself is still deferred (M4.2); business registration and the
-frontend are separate milestones (M3.3/M3.4), not implemented here.
+framework (Precision@K, Recall@K, MRR) that found hybrid scoring *below*
+vector-only. **M4.1.1** tunes hybrid based on that finding (score-threshold
+keyword gating, weighted RRF, narrowed search fields) — recovers roughly
+half the gap, honestly documented as a partial fix, not a full one. Same
+API, same filters, same eval framework throughout. Cross-encoder reranking
+is still deferred (M4.2); business registration and the frontend are
+separate milestones (M3.3/M3.4), not implemented here.
 
 ## Setup
 
@@ -139,17 +142,18 @@ and applied to all 14 fields by M1.2's ingestion script.
   work end-to-end with real embeddings, not just the synthetic spike vector
   from M1.1.
 
-## Search API (M2 + M3.1 hybrid + M3.2 filters)
+## Search API (M2 + M3.1 hybrid + M3.2 filters + M4.1.1 tuning)
 
 `POST /api/search` — hybrid semantic + keyword search with optional filters.
-Runs Atlas `$vectorSearch` and Atlas `$search` (on `business_description`,
-`products_services`, `keywords`, `specialties`) **concurrently** (2-worker
-`ThreadPoolExecutor` — pymongo's `MongoClient` is thread-safe), fuses the two
-ranked candidate lists with Reciprocal Rank Fusion (`score = Σ 1/(60 + rank)`,
-k=60 — standard IR-literature default, used as-is per design-doc-v2.md), and
-returns the top N. Same route and request shape as M2's vector-only baseline
-— extension, not rewrite. Still no cross-encoder reranking (gated on M4.1's
-eval showing it actually helps).
+Runs Atlas `$vectorSearch` and Atlas `$search` (on `keywords`, `specialties`,
+`products_services` — narrowed from the original 4 fields, see M4.1.1 below)
+**concurrently** (2-worker `ThreadPoolExecutor` — pymongo's `MongoClient` is
+thread-safe), fuses the two ranked candidate lists with **Weighted**
+Reciprocal Rank Fusion (`score = Σ weight/(60 + rank)`, vector weight 0.7 /
+keyword weight 0.3, k=60 — see M4.1.1 below for why), and returns the top N.
+Same route and request shape as M2's vector-only baseline — extension, not
+rewrite. Still no cross-encoder reranking (gated on M4.1's eval showing it
+actually helps).
 
 Request:
 ```json
@@ -225,6 +229,66 @@ Verified against the live cluster:
   returns zero hits, hybrid gracefully falls back to semantic-only results
   instead of erroring.
 
+## Tuned Hybrid Search (M4.1.1)
+
+M4.1's eval found hybrid scoring *below* vector-only overall (P@5 0.467 vs
+0.560), traced to Atlas `$search` producing coincidental single-token
+matches with zero real relevance that RRF's rank-based fusion couldn't
+discount. Three tuning changes target this, all in `app/search.py`, all
+configurable via module-level constants (documented inline with the
+reasoning) and *not* exposed as new request fields — the API, filters, and
+eval framework are all unchanged:
+
+1. **Keyword score-threshold gating** (`KEYWORD_SCORE_THRESHOLD_RATIO =
+   0.3`) — a keyword hit must score at least 30% of that query's own top
+   keyword match to survive into fusion. Atlas's `searchScore` has no
+   fixed scale across queries, so the threshold is relative per-query, not
+   an absolute cutoff.
+2. **Weighted RRF** (`RRF_WEIGHT_VECTOR = 0.7`, `RRF_WEIGHT_KEYWORD =
+   0.3`) — vector weighted ~2.3x higher, since M4.1's eval found keyword
+   search never contributed a unique win in the golden set while
+   repeatedly diluting correct vector rankings with noise.
+3. **Narrowed search fields** (`keywords`, `specialties`,
+   `products_services` — dropped `business_description`) — the dropped
+   field carries near-identical templated boilerplate ("...business
+   specializing in...") across all 120 documents, which produced false
+   matches like "business trip" -> "business insurance".
+
+All three are reasoned starting points from the M4.1 investigation, not
+grid-searched — validated by re-running the same golden eval (below), not
+asserted.
+
+**Result — a genuine, partial improvement, reported honestly:**
+
+| System | P@5 | P@10 | R@5 | R@10 | MRR |
+|---|---|---|---|---|---|
+| Vector-only | 0.560 | 0.303 | 0.946 | 1.000 | 0.958 |
+| Previous Hybrid (M3.1/M3.2) | 0.467 | 0.283 | 0.792 | 0.940 | 0.863 |
+| Tuned Hybrid (M4.1.1) | 0.513 | 0.303 | 0.875 | 1.000 | 0.869 |
+
+Recovered roughly half the P@5 gap and nearly closed the recall gap (R@10
+now ties vector-only). The `synonym` category — worst-hit in M4.1 —
+improved the most (P@5 0.280 -> 0.480, R@10 0.800 -> 1.000).
+
+**What's still not fixed, verified by direct inspection, not assumed:**
+`edge_case` shows zero improvement, and `semantic`'s MRR actually *dropped*
+(0.850 -> 0.717). Traced to `sem-02` ("...business trip", targeting
+Hotels): the correct answer fell from rank 1 to rank 3 because **Insurance's
+own `keywords` field literally contains "business insurance"** — the
+collision lives inside a genuinely discriminative field, not the boilerplate
+field-narrowing targeted. Score-threshold gating doesn't catch this either,
+because it's the *only* keyword hit for that query — there's no weaker
+match to compare it against and discard. Both tuning mechanisms only help
+when a stronger match exists to judge a weak one against; neither can fix a
+case where the single best available keyword match is itself a same-word,
+different-sense coincidence. This residual failure class is exactly what a
+cross-encoder reranker (M4.2, not built here) is suited for — it judges
+full semantic relevance, not token overlap — and is the concrete evidence
+design-doc-v2.md's evidence-gating rule requires before shipping it.
+
+Full report with per-category breakdown: `eval_reports/report_*.md` (run
+`uv run python scripts/eval.py` to regenerate).
+
 ## Evaluation Framework (M4.1)
 
 Golden-query evaluation harness comparing search systems on real,
@@ -259,11 +323,15 @@ Recall@10, MRR@10. Recall and MRR are `None` (not `0.0`) for the two
 zero-relevant edge cases — mathematically undefined (0/0), not a failure
 — and excluded from every average rather than silently counted as zero.
 
-**Systems compared:** `vector-only` (M2's baseline) vs `hybrid` (M3.1/M3.2's
-current default), both applying filters identically for a fair comparison
-on filtered queries. Both reuse `app.search`'s actual retrieval internals
-directly (`_vector_search`, `_keyword_search`, `search_businesses`) — no
-duplicated retrieval logic between the live API and the eval harness.
+**Systems compared:** `vector-only` (M2's baseline), `hybrid-previous`
+(M3.1/M3.2's original unweighted/unfiltered/4-field config, preserved only
+for this comparison — not used by the live API), and `hybrid-tuned`
+(M4.1.1's current default — identical to what `search_businesses()` and
+the live API actually run). All three apply filters identically for a
+fair comparison on filtered queries, and all three reuse `app.search`'s
+actual retrieval internals directly (`_vector_search`, `_keyword_search`,
+`_reciprocal_rank_fusion`, `search_businesses`) — no duplicated retrieval
+logic between the live API and the eval harness.
 
 **Extensible for M4.2:** a "system" is just
 `Callable[[str, int, dict | None], list[dict]]` returning ranked results
@@ -272,20 +340,10 @@ cross-encoder-reranked variant later means writing one more function with
 that signature and adding one line to `SYSTEMS` — nothing else in the file
 needs to change.
 
-**Actual finding from this run:** hybrid scores *lower* than vector-only
-overall (P@5 0.467 vs 0.560), most sharply on `synonym` queries (P@5 0.280
-vs 0.520). Verified by direct inspection, not assumed: for `syn-01`
-("computer hacking defense and security auditing firm", targeting
-Cybersecurity), Atlas `$search` matches unrelated "AI Solutions" businesses
-on the single literal token "computer" (present in their keywords as
-"computer vision") — a coincidental overlap that RRF can't distinguish
-from a genuine keyword match, so it wrongly outranks the correct
-Cybersecurity results. Vector-only has no keyword signal to be diluted by
-this. Full analysis in the generated report (`eval_reports/report_*.md`,
-"Analysis" section) — this is exactly the class of gap a cross-encoder
-reranker (M4.2) could close, and exactly why design-doc-v2.md gates
-reranking on evidence from this eval set rather than shipping it by
-assertion.
+**Findings from this run:** see "Tuned Hybrid Search (M4.1.1)" above for
+the full before/after comparison table and honest accounting of what
+tuning fixed and what it didn't. Full per-category breakdown and analysis
+in the generated report (`eval_reports/report_*.md`).
 
 ## Notes
 
