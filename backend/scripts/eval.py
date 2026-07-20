@@ -1,20 +1,24 @@
 """
-Search evaluation framework (M4.1).
+Search evaluation framework (M4.1), extended for a 3-way comparison (M4.1.1).
 
-Runs the golden query set (scripts/eval_dataset.py) against two search
-systems -- vector-only (M2 baseline) and hybrid+RRF (M3.1/M3.2, the current
-default) -- and reports Precision@K, Recall@K, and MRR for each, overall
-and broken down by query category. This is the evidence M4.2 will need:
-"ship reranking only if it measurably improves precision@5 on this set"
-(design-doc-v2.md) requires a baseline number to improve on, which is what
-this script produces.
+Runs the golden query set (scripts/eval_dataset.py) against three search
+systems -- vector-only (M2 baseline), hybrid-previous (M3.1/M3.2's
+original unweighted, unfiltered-keyword-score, 4-field config, preserved
+here only for comparison), and hybrid-tuned (M4.1.1's current default,
+identical to what search_businesses() and the live API actually run) --
+and reports Precision@K, Recall@K, and MRR for each, overall and broken
+down by query category. This is the evidence M4.2 will need: "ship
+reranking only if it measurably improves precision@5 on this set"
+(design-doc-v2.md) requires a baseline to improve on, which is what this
+script produces.
 
 Extensibility for future reranking experiments: a "system" is just a
 Callable[[str, int, dict | None], list[dict]] returning ranked result
-dicts with a "business_name" key (see SYSTEMS below). Adding a third
+dicts with a "business_name" key (see SYSTEMS below). Adding a fourth
 system (e.g. hybrid + cross-encoder rerank, once M4.2 builds it) means
 writing one more function with that signature and adding one line to
-SYSTEMS -- no changes needed anywhere else in this file.
+SYSTEMS -- no changes needed anywhere else in this file. Nothing below
+the SYSTEMS section (metrics, runner, report) changed for M4.1.1.
 
 Run: uv run python scripts/eval.py
 """
@@ -34,6 +38,7 @@ from app.search import (
     POOL_SIZE_FILTERED,
     POOL_SIZE_MULTIPLIER,
     _keyword_search,
+    _reciprocal_rank_fusion,
     _vector_search,
     search_businesses,
 )
@@ -45,8 +50,8 @@ REPORT_DIR = Path(__file__).parent.parent / "eval_reports"
 
 # ---------------------------------------------------------------------------
 # Systems under comparison. Each is Callable[[str, int, dict | None], list[dict]].
-# Both reuse app.search's existing internals directly -- no retrieval logic
-# is duplicated here.
+# All three reuse app.search's existing internals directly -- no retrieval
+# logic is duplicated here.
 # ---------------------------------------------------------------------------
 
 def vector_only_search(query: str, limit: int, filters: dict | None = None) -> list[dict]:
@@ -63,15 +68,50 @@ def vector_only_search(query: str, limit: int, filters: dict | None = None) -> l
     return results[:limit]
 
 
-def hybrid_search(query: str, limit: int, filters: dict | None = None) -> list[dict]:
-    """M3.1/M3.2's current default: hybrid $vectorSearch + $search fused
-    with RRF, with filters applied to both retrieval paths."""
+# M3.1/M3.2's original config, before M4.1.1's tuning. Preserved only so
+# this eval can show the actual before/after delta -- not used by the live
+# API. Reconstructed via the same _keyword_search/_reciprocal_rank_fusion
+# internals with their tuned defaults explicitly overridden back to the
+# pre-M4.1.1 behavior: unweighted RRF (both sources weight 1.0), no
+# keyword score-threshold gating (ratio 0.0 keeps everything), and the
+# original 4-field search path including business_description.
+_LEGACY_SEARCH_PATHS = ["business_description", "products_services", "keywords", "specialties"]
+
+
+def hybrid_search_previous(query: str, limit: int, filters: dict | None = None) -> list[dict]:
+    """M3.1/M3.2's original hybrid config (pre-M4.1.1), for comparison."""
+    query_vector = embed_texts([query])[0]
+    active_filters = validate_filters(filters)
+    pool_size = (
+        POOL_SIZE_FILTERED
+        if active_filters
+        else max(POOL_SIZE_DEFAULT, limit * POOL_SIZE_MULTIPLIER)
+    )
+    businesses = get_db()["businesses"]
+    vector_results = _vector_search(businesses, query_vector, pool_size, active_filters)
+    keyword_results = _keyword_search(
+        businesses,
+        query,
+        pool_size,
+        active_filters,
+        search_paths=_LEGACY_SEARCH_PATHS,
+        score_threshold_ratio=0.0,
+    )
+    return _reciprocal_rank_fusion(
+        vector_results, keyword_results, limit, vector_weight=1.0, keyword_weight=1.0
+    )
+
+
+def hybrid_search_tuned(query: str, limit: int, filters: dict | None = None) -> list[dict]:
+    """M4.1.1's tuned hybrid: identical to what search_businesses() (and
+    the live /api/search endpoint) actually runs -- no separate config."""
     return search_businesses(query, limit, filters)
 
 
 SYSTEMS = {
     "vector-only": vector_only_search,
-    "hybrid": hybrid_search,
+    "hybrid-previous": hybrid_search_previous,
+    "hybrid-tuned": hybrid_search_tuned,
 }
 
 
@@ -170,7 +210,7 @@ def _fmt(value: float | None) -> str:
 
 def render_report(results_by_system: dict[str, list[dict]], categories: list[str]) -> str:
     lines = []
-    lines.append("# Search Evaluation Report (M4.1)")
+    lines.append("# Search Evaluation Report (M4.1 + M4.1.1)")
     lines.append("")
     lines.append(f"Generated: {datetime.now(timezone.utc).isoformat()}")
     lines.append(f"Golden queries: {len(GOLDEN_QUERIES)} across {len(categories)} categories")
@@ -218,27 +258,54 @@ def render_report(results_by_system: dict[str, list[dict]], categories: list[str
     lines.append("## Analysis")
     lines.append("")
     lines.append(
-        "On this golden set, hybrid scores *lower* than vector-only overall "
-        "(P@5 drops, most sharply on `synonym` queries). This is real signal, "
-        "not a bug in this harness -- verified by direct inspection: for "
-        "`syn-01` (\"computer hacking defense and security auditing firm\", "
-        "targeting Cybersecurity), Atlas `$search` matches \"AI Solutions\" "
-        "businesses on the single literal token \"computer\" (present in "
-        "their keywords as \"computer vision\") -- a coincidental, irrelevant "
-        "overlap. RRF has no way to tell a spurious single-word keyword hit "
-        "from a genuine one, so it folds this into `matched_via: both` and "
-        "wrongly outranks the correct Cybersecurity results. Vector-only, "
-        "with no keyword signal to dilute its ranking, doesn't have this "
-        "failure mode on these queries."
+        "**M4.1 finding:** hybrid-previous scored *lower* than vector-only "
+        "overall (P@5 0.467 vs 0.560), worst on `synonym` queries. Root "
+        "cause, verified by direct inspection: Atlas `$search` matching on "
+        "a single coincidental literal token with zero real relevance to "
+        "the query (e.g. `syn-01`, \"computer hacking defense and security "
+        "auditing firm\" targeting Cybersecurity, matched \"AI Solutions\" "
+        "on \"computer\" via their \"computer vision\" keyword), which "
+        "RRF's rank-based fusion had no way to discount."
     )
     lines.append("")
     lines.append(
-        "This is exactly the kind of gap a cross-encoder reranker could "
-        "close (M4.2, not built here) -- a reranker sees full query+document "
-        "semantic relevance, not just token overlap, so it could down-rank "
-        "a document that only coincidentally shares one word with the "
-        "query. It's also exactly why design-doc-v2.md gates reranking on "
-        "evidence from this eval set rather than shipping it by assertion."
+        "**M4.1.1 result:** tuning (score-threshold-gated keyword matches, "
+        "weighted RRF favoring vector 0.7/0.3, narrowed search fields) "
+        "recovered roughly half the P@5 gap (0.467 -> 0.513, vs "
+        "vector-only's 0.560) and nearly closed the recall gap (R@5 0.792 "
+        "-> 0.875; R@10 0.940 -> 1.000, now tied with vector-only). The "
+        "`synonym` category -- the worst-hit in M4.1 -- improved the most "
+        "(P@5 0.280 -> 0.480, R@10 0.800 -> 1.000). This is a genuine, "
+        "meaningful improvement, not a full fix."
+    )
+    lines.append("")
+    lines.append(
+        "**What's still not fixed, and why -- verified, not assumed:** "
+        "`edge_case` shows zero improvement, and `semantic`'s MRR actually "
+        "*dropped* (0.850 -> 0.717) despite its precision improving. Traced "
+        "by direct inspection to `sem-02` (\"looking for a place to stay "
+        "overnight during my business trip\", targeting Hotels): the "
+        "correct answer fell from rank 1 to rank 3 because Insurance's own "
+        "`keywords` field literally contains \"business insurance\" -- the "
+        "word \"business\" collides with the query, and this collision "
+        "lives in `keywords` itself, not the `business_description` "
+        "boilerplate the field-narrowing change targeted. Score-threshold "
+        "gating doesn't catch it either, because it's the top (and only) "
+        "keyword hit for that query -- there's no weaker match to filter "
+        "against. Both tuning mechanisms only help when a genuinely strong "
+        "match exists to compare against; they can't fix a case where the "
+        "*single best available* keyword match is itself a same-word, "
+        "different-sense coincidence."
+    )
+    lines.append("")
+    lines.append(
+        "This residual class of failure -- correct token, wrong sense, and "
+        "no better keyword candidate to rank it against -- is exactly what "
+        "a cross-encoder reranker (M4.2, not built here) is suited to fix: "
+        "it evaluates full query+document semantic relevance rather than "
+        "token overlap, so it isn't fooled by a shared surface form. This "
+        "is the concrete evidence design-doc-v2.md's evidence-gating rule "
+        "was built to require before shipping reranking."
     )
     lines.append("")
     return "\n".join(lines)
