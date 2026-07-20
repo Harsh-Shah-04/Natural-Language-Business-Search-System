@@ -1,4 +1,4 @@
-# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 + M4.1 + M4.1.1 (Atlas, ingestion, embeddings, tuned hybrid search, evaluation)
+# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 + M4.1 + M4.1.1 + M4.2 (Atlas, ingestion, embeddings, reranked hybrid search, evaluation)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
@@ -13,10 +13,12 @@ the architecture review flagged. **M4.1** adds a golden-query evaluation
 framework (Precision@K, Recall@K, MRR) that found hybrid scoring *below*
 vector-only. **M4.1.1** tunes hybrid based on that finding (score-threshold
 keyword gating, weighted RRF, narrowed search fields) — recovers roughly
-half the gap, honestly documented as a partial fix, not a full one. Same
-API, same filters, same eval framework throughout. Cross-encoder reranking
-is still deferred (M4.2); business registration and the frontend are
-separate milestones (M3.3/M3.4), not implemented here.
+half the gap. **M4.2** adds an optional cross-encoder reranking stage after
+hybrid, which the eval shows closes the rest of the gap to vector-only — so
+it ships enabled, on that evidence, per design-doc-v2.md's evidence-gating
+rule. Same API, same filters, same eval framework throughout. Business
+registration and the frontend are separate milestones (M3.3/M3.4), not
+implemented here.
 
 ## Setup
 
@@ -87,13 +89,16 @@ uv run uvicorn app.main:app --reload
 ```
 Check it's up: `curl http://127.0.0.1:8000/health` -> `{"status":"ok"}`
 
-The embedding model loads in a background thread on startup, so `/health`
-is up instantly regardless of model load state. Poll model readiness:
+The models load in background threads on startup, so `/health` is up
+instantly regardless of model load state. Poll model readiness:
 ```
-curl http://127.0.0.1:8000/health/model
+curl http://127.0.0.1:8000/health/model      # embedder (bge-small)
+curl http://127.0.0.1:8000/health/reranker   # cross-encoder (M4.2, if RERANK_ENABLED)
 ```
-Cycles `{"status":"not_started"}` -> `{"status":"loading"}` -> `{"status":"ready"}`
-(or `{"status":"error","detail":"..."}` if the model fails to load).
+Each cycles `{"status":"not_started"}` -> `{"status":"loading"}` ->
+`{"status":"ready"}` (or `{"status":"error","detail":"..."}` on load
+failure). The two are independent — search still works (un-reranked) if the
+reranker is down.
 
 Verify the Atlas spike (both indexes actually work end-to-end):
 ```
@@ -289,6 +294,99 @@ design-doc-v2.md's evidence-gating rule requires before shipping it.
 Full report with per-category breakdown: `eval_reports/report_*.md` (run
 `uv run python scripts/eval.py` to regenerate).
 
+## Cross-Encoder Reranking (M4.2)
+
+M4.1.1 left a residual failure class it couldn't fix at the retrieval
+layer: a query and a business sharing a surface token in *different senses*
+(e.g. "business trip" colliding with "business insurance"), where that
+collision is the only keyword match available. M4.2 adds an optional
+cross-encoder reranking stage after hybrid to fix exactly that.
+
+**How it works.** A bi-encoder (the `bge-small` embedder) encodes query and
+document separately into vectors and compares by distance — it can't tell
+apart two different senses of the same token. A cross-encoder
+(`cross-encoder/ms-marco-MiniLM-L-6-v2`, ~92MB, 22.7M params) instead runs
+full attention over the concatenated `(query, document)` pair and outputs a
+relevance score, so it reads "business trip" and "business insurance" as the
+different things they are. After hybrid fusion, the fused **top-20**
+(`RERANK_TOP_N`) are rescored by the cross-encoder and re-sorted, then the
+top-`limit` is returned. Reranking a pool *wider* than the final limit is
+the point: a business hybrid ranked #15 can climb into the top-10 if it's
+genuinely more relevant — reranking only the already-cut top-10 could never
+recover it.
+
+**The hybrid pipeline is untouched.** `_vector_search`, `_keyword_search`,
+and `_reciprocal_rank_fusion` are byte-for-byte unchanged; reranking is a
+strictly additive stage layered on top of their output (`app/reranker.py`).
+
+**Configurable.** `RERANK_ENABLED` in `app/search.py` (also settable via the
+`RERANK_ENABLED` env var) toggles it; `search_businesses(..., rerank=...)`
+overrides per call (that's how the eval measures hybrid vs hybrid+rerank).
+The reranker loads as a lazy singleton with independent background warm-up
+and its own health endpoint, `GET /health/reranker` — separate from
+`/health/model` (the embedder), which is unchanged. When rerank is disabled,
+the reranker never loads, so a rerank-off deployment pays none of its cost.
+
+**Graceful degradation, not a hard dependency.** If the cross-encoder fails
+to load or infer, search returns the un-reranked (still-good) hybrid results
+rather than erroring — reranking is a quality layer, and design-doc-v2.md
+calls for reranker failure to mean "search degrades, not a crash." Persistent
+failures stay visible via `/health/reranker`.
+
+**API contract preserved.** Same route, same request/response shape. `score`
+becomes the cross-encoder relevance score when reranking is on (MS MARCO
+logits, unbounded — can exceed 1; still a `float`, same field). `matched_via`
+is carried through from fusion unchanged.
+
+**Quality — reranking clears the evidence gate** (full 4-way eval, live
+Atlas):
+
+| System | P@5 | P@10 | R@5 | R@10 | MRR |
+|---|---|---|---|---|---|
+| Vector-only | 0.560 | 0.303 | 0.946 | 1.000 | 0.958 |
+| Previous Hybrid (M3.1/M3.2) | 0.467 | 0.283 | 0.792 | 0.940 | 0.863 |
+| Tuned Hybrid (M4.1.1) | 0.513 | 0.303 | 0.875 | 1.000 | 0.869 |
+| **Hybrid + Cross-Encoder (M4.2)** | **0.560** | **0.303** | **0.946** | **1.000** | **0.929** |
+
+Reranking closes the rest of the gap: P@5 0.513 → 0.560 and R@5 0.875 →
+0.946 (both now equal vector-only), MRR 0.869 → 0.929. The two categories
+tuning couldn't fix improve exactly as predicted — `synonym` P@5 0.480 →
+0.560, `edge_case` P@5 0.240 → 0.360 / MRR 0.722 → 1.000. Verified live:
+"computer hacking..." now ranks the 3 Cybersecurity businesses first (was AI
+Solutions), and "...business trip" ranks Hotels first (was Insurance).
+
+**Honest caveat.** On this small, clean, templated 120-doc set vector-only
+is already very strong, so reranking brings hybrid *to parity* with it on
+P@5/R@5/R@10 rather than strictly beating it everywhere (vector-only's MRR
+0.958 still edges rerank's 0.929). The win is that hybrid+rerank gets
+keyword-exact recall (which pure vector search lacks) *and* semantic
+precision together; on a messier real-world corpus that combination is where
+it would pull clearly ahead. Reranking *does* measurably beat the best
+non-reranked system (precision@5 0.513 → 0.560), which is the specific bar
+design-doc-v2.md set for shipping it — hence `RERANK_ENABLED` defaults on.
+
+**Latency cost** (benchmarked on this machine, CPU, warm models, live Atlas):
+
+| Config | p50 | p95 |
+|---|---|---|
+| Hybrid (rerank off) | ~58ms | ~800ms |
+| Hybrid + rerank | ~463ms | ~830ms |
+
+Reranking adds **~+405ms p50** — the cost of running the cross-encoder over
+~20 `(query, document)` pairs per query on CPU. That lands just under the
+design doc's <500ms p50 target, but with little headroom; on a latency-
+sensitive deployment `RERANK_ENABLED=false` gives back the tuned-hybrid
+numbers instantly. (The ~800ms p95 on both rows is occasional
+cold-cache/Atlas-roundtrip noise, not reranking — it's present with rerank
+off too.)
+
+**Memory.** Cross-encoder: ~92MB on disk, 22.7M params (~90MB of float32
+weights resident, plus PyTorch overhead). Cold load ~8.5s. This is *in
+addition* to the embedder (`bge-small`, ~135MB on disk) — so a
+rerank-enabled process holds both models. Relevant for the M5 deploy target:
+Render's free 512MB tier would be tight with both loaded, which is partly
+why reranking is toggle-able.
+
 ## Evaluation Framework (M4.1)
 
 Golden-query evaluation harness comparing search systems on real,
@@ -323,22 +421,24 @@ Recall@10, MRR@10. Recall and MRR are `None` (not `0.0`) for the two
 zero-relevant edge cases — mathematically undefined (0/0), not a failure
 — and excluded from every average rather than silently counted as zero.
 
-**Systems compared:** `vector-only` (M2's baseline), `hybrid-previous`
-(M3.1/M3.2's original unweighted/unfiltered/4-field config, preserved only
-for this comparison — not used by the live API), and `hybrid-tuned`
-(M4.1.1's current default — identical to what `search_businesses()` and
-the live API actually run). All three apply filters identically for a
-fair comparison on filtered queries, and all three reuse `app.search`'s
-actual retrieval internals directly (`_vector_search`, `_keyword_search`,
-`_reciprocal_rank_fusion`, `search_businesses`) — no duplicated retrieval
-logic between the live API and the eval harness.
+**Systems compared** (4-way): `vector-only` (M2's baseline),
+`hybrid-previous` (M3.1/M3.2's original unweighted/unfiltered/4-field
+config, kept only for comparison), `hybrid-tuned` (M4.1.1's tuning, rerank
+off), and `hybrid-rerank` (M4.2: tuned hybrid + cross-encoder, what the
+live API runs when `RERANK_ENABLED`). All four apply filters identically for
+a fair comparison, and all four reuse `app.search`'s actual retrieval
+internals directly (`_vector_search`, `_keyword_search`,
+`_reciprocal_rank_fusion`, `rerank_candidates`, `search_businesses`) — no
+duplicated retrieval logic between the live API and the eval harness. The
+`rerank` toggle on `search_businesses()` is what lets the eval force
+reranking on/off per system without a separate code path.
 
-**Extensible for M4.2:** a "system" is just
+**Extensible:** a "system" is just
 `Callable[[str, int, dict | None], list[dict]]` returning ranked results
-with a `business_name` key (see `SYSTEMS` in `scripts/eval.py`). Adding a
-cross-encoder-reranked variant later means writing one more function with
-that signature and adding one line to `SYSTEMS` — nothing else in the file
-needs to change.
+with a `business_name` key (see `SYSTEMS` in `scripts/eval.py`). Each new
+milestone's variant (M4.1.1's tuned, M4.2's reranked) was one more function
+of that signature plus one line in `SYSTEMS` — nothing below the SYSTEMS
+section (metrics, runner, report) has had to change.
 
 **Findings from this run:** see "Tuned Hybrid Search (M4.1.1)" above for
 the full before/after comparison table and honest accounting of what
