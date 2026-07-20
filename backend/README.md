@@ -1,11 +1,14 @@
-# Backend — M1.1-M1.3 + M2 (Atlas spike, ingestion, embeddings, search API)
+# Backend — M1.1-M1.3 + M2 + M3.1 (Atlas, ingestion, embeddings, hybrid search)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
 120-business dataset. **M1.3** backfills real embeddings onto that data and
-adds background model warm-up + a dedicated model health check. **M2** adds
-`POST /api/search` — vector-only semantic search (naive baseline; hybrid
-search + RRF + reranking are M3.1/M4.2, not implemented here).
+adds background model warm-up + a dedicated model health check. **M2** added
+`POST /api/search` as vector-only semantic search (naive baseline). **M3.1**
+upgrades it to hybrid: Atlas `$vectorSearch` + `$search` fused with
+Reciprocal Rank Fusion — same route, same request shape. Cross-encoder
+reranking is still deferred (M4.2, gated on M4.1's eval showing it helps);
+`filters` are still deferred (M3.2).
 
 ## Setup
 
@@ -131,41 +134,53 @@ and applied to all 14 fields by M1.2's ingestion script.
   work end-to-end with real embeddings, not just the synthetic spike vector
   from M1.1.
 
-## Search API (M2)
+## Search API (M2 + M3.1 hybrid)
 
-`POST /api/search` — vector-only semantic search, the naive baseline per
-design-doc-v2.md. No keyword search, RRF, or reranking yet (M3.1/M4.2).
+`POST /api/search` — hybrid semantic + keyword search. Runs Atlas
+`$vectorSearch` and Atlas `$search` (on `business_description`,
+`products_services`, `keywords`, `specialties`) **concurrently** (2-worker
+`ThreadPoolExecutor` — pymongo's `MongoClient` is thread-safe), fuses the two
+ranked candidate lists with Reciprocal Rank Fusion (`score = Σ 1/(60 + rank)`,
+k=60 — standard IR-literature default, used as-is per design-doc-v2.md), and
+returns the top N. Same route and request shape as M2's vector-only baseline
+— extension, not rewrite. Still no `filters` param (M3.2) and no
+cross-encoder reranking (gated on M4.1's eval showing it actually helps).
 
-Request:
+Request: unchanged from M2.
 ```json
 {"query": "GST Expert", "limit": 10}
 ```
 `query`: required, non-blank after stripping whitespace, max 500 chars.
-`limit`: optional, default 10, bounded 1-50.
+`limit`: optional, default 10, bounded 1-50. Candidate pool per retrieval
+source is `max(30, limit * 3)` — design-doc-v2.md's documented "top ~30" at
+the default `limit=10`, generalized so a larger `limit` doesn't starve fusion.
 
-Response: `{"query": "...", "results": [{...business fields..., "id": "...", "score": 0.89}]}`.
-`embedding` is never returned to the client. `score` is Atlas's `vectorSearchScore`
-(cosine similarity, since vectors are normalized and the index uses `cosine`).
+Response: `{"query": "...", "results": [{...business fields..., "id": "...",
+"score": 0.033, "matched_via": "both"}]}`. `matched_via` is `"semantic"`,
+`"keyword"`, or `"both"`. **`score` is now the RRF-fused value, not raw
+cosine similarity** — small numbers (max ~0.033 if ranked #1 by both
+sources), not M2's ~0.7-0.9 range. `embedding` is never returned.
 
-Error handling: invalid request body -> 422 (FastAPI/Pydantic). Embedding
-model or Atlas unavailable -> 503 with a plain-language `detail` message
-(never a raw 500 or leaked internals — `app/search.py`'s `SearchUnavailableError`
-wraps both the embed-model-load path and the Mongo query path, including
-`get_db()` failing before a query is even attempted).
-
-`numCandidates` for `$vectorSearch` is `max(limit * 10, 100)` — standard Atlas
-guidance is 10-20x `limit` for good recall; at this corpus size (120 docs)
-that comfortably covers the whole collection regardless of `limit`.
+Error handling: unchanged from M2 — invalid request body -> 422; embedding
+model or Atlas unavailable -> 503 with a plain-language `detail` message,
+never a raw 500 or leaked internals.
 
 Benchmarked against the live Atlas cluster (30 requests, warm model, real
-HTTP + embed + Atlas roundtrip): **p50 ~60ms, p95 ~82ms, mean ~68ms** — well
-under the design doc's <500ms p50 target for the eventual full hybrid+rerank
-pipeline.
+HTTP + parallel embed/Atlas roundtrip): **p50 ~62ms, p95 ~80ms, mean ~71ms**
+— nearly identical to M2's vector-only baseline (p50 ~60ms), confirming the
+parallel retrieval didn't cost meaningful latency. Well under the design
+doc's <500ms p50 target for the eventual hybrid+rerank pipeline.
 
-Verified against real queries: "GST Expert" -> GST Consultants top 3
-(score ~0.86-0.89); "website design and development" -> Software
-Development/Digital Marketing firms; "restaurant food packaging" -> Food
-Packaging manufacturers.
+Verified against the live cluster:
+- "GST Expert" -> all 3 GST Consultants rank first, tagged `matched_via:
+  "both"`; the two vector-only false-positive "Coaching Institutes" matches
+  (semantically similar, no literal overlap) correctly demote and tag
+  `matched_via: "semantic"`.
+- "ISO27001 compliance" -> vector-only and keyword-only disagree on result
+  order; RRF fusion re-ranks based on combined evidence from both.
+- "HNSW indexing vector database" (out-of-domain jargon) -> keyword search
+  returns zero hits, hybrid gracefully falls back to semantic-only results
+  instead of erroring.
 
 ## Notes
 
