@@ -9,31 +9,41 @@ import type {
 } from '../types/api';
 import { EMAIL_RE, WEBSITE_RE } from '../types/api';
 
+export type FieldGroup = 'business' | 'location' | 'contact';
+
 /** Declarative field config — drives both rendering and validation so the two
  *  never drift. Order here is the on-screen order. */
 export interface FieldConfig {
   name: RegistrationField;
   label: string;
+  group: FieldGroup;
   required: boolean;
   multiline?: boolean;
   type?: 'text' | 'email' | 'tel' | 'url';
   placeholder?: string;
 }
 
+/** Section headings for the grouped registration form, in display order. */
+export const FIELD_GROUPS: { id: FieldGroup; title: string }[] = [
+  { id: 'business', title: 'Business Information' },
+  { id: 'location', title: 'Location' },
+  { id: 'contact', title: 'Contact Information' },
+];
+
 export const REGISTRATION_FIELDS: FieldConfig[] = [
-  { name: 'business_name', label: 'Business Name', required: true },
-  { name: 'industry', label: 'Industry', required: true },
-  { name: 'nature', label: 'Nature of Business', required: true, placeholder: 'e.g. Goods or Services' },
-  { name: 'sub_category', label: 'Sub Category', required: true },
-  { name: 'business_description', label: 'Business Description', required: true, multiline: true },
-  { name: 'products_services', label: 'Products / Services', required: true, multiline: true },
-  { name: 'keywords', label: 'Keywords', required: false, multiline: true, placeholder: 'Comma-separated terms buyers might search' },
-  { name: 'city', label: 'City', required: true },
-  { name: 'state', label: 'State', required: true },
-  { name: 'address', label: 'Address', required: false },
-  { name: 'phone', label: 'Phone', required: false, type: 'tel' },
-  { name: 'email', label: 'Email', required: false, type: 'email' },
-  { name: 'website', label: 'Website', required: false, type: 'url', placeholder: 'example.com' },
+  { name: 'business_name', label: 'Business Name', group: 'business', required: true },
+  { name: 'industry', label: 'Industry', group: 'business', required: true },
+  { name: 'nature', label: 'Nature of Business', group: 'business', required: true, placeholder: 'e.g. Goods or Services' },
+  { name: 'sub_category', label: 'Sub Category', group: 'business', required: true },
+  { name: 'business_description', label: 'Business Description', group: 'business', required: true, multiline: true },
+  { name: 'products_services', label: 'Products / Services', group: 'business', required: true, multiline: true },
+  { name: 'keywords', label: 'Keywords', group: 'business', required: false, multiline: true, placeholder: 'Comma-separated terms buyers might search' },
+  { name: 'city', label: 'City', group: 'location', required: true },
+  { name: 'state', label: 'State', group: 'location', required: true },
+  { name: 'address', label: 'Address', group: 'location', required: false },
+  { name: 'phone', label: 'Phone', group: 'contact', required: false, type: 'tel' },
+  { name: 'email', label: 'Email', group: 'contact', required: false, type: 'email' },
+  { name: 'website', label: 'Website', group: 'contact', required: false, type: 'url', placeholder: 'example.com' },
 ];
 
 export type FormValues = Record<RegistrationField, string>;

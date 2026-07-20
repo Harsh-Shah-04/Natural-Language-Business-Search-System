@@ -1,6 +1,6 @@
 import { FormField } from '../components/FormField';
-import { StatusMessage } from '../components/StatusMessage';
 import {
+  FIELD_GROUPS,
   REGISTRATION_FIELDS,
   useRegistrationForm,
 } from '../hooks/useRegistrationForm';
@@ -25,12 +25,24 @@ export function RegisterPage({ onSearchBusiness }: RegisterPageProps) {
 
   if (status === 'success' && registered) {
     return (
-      <div className="register-success">
-        <StatusMessage
-          variant="empty"
-          title="Business registered"
-          detail={`“${registered.business_name}” is now in the directory and searchable.`}
-        />
+      <div className="register-success" role="status">
+        <div className="register-success__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="m5 13 4 4L19 7"
+            />
+          </svg>
+        </div>
+        <h2 className="register-success__title">Business registered</h2>
+        <p className="register-success__detail">
+          <strong>{registered.business_name}</strong> is now in the directory and
+          searchable through the existing search pipeline.
+        </p>
         <div className="register-success__actions">
           <button
             type="button"
@@ -62,28 +74,37 @@ export function RegisterPage({ onSearchBusiness }: RegisterPageProps) {
         Fields marked <span className="form-field__required">*</span> are required.
       </p>
 
-      <div className="register-form__grid">
-        {REGISTRATION_FIELDS.map((field) => (
-          <div
-            key={field.name}
-            className={field.multiline ? 'register-form__cell--full' : undefined}
-          >
-            <FormField
-              id={`reg-${field.name}`}
-              label={field.label}
-              value={values[field.name]}
-              onChange={(value) => setField(field.name, value)}
-              onBlur={() => blurField(field.name)}
-              error={errors[field.name]}
-              required={field.required}
-              multiline={field.multiline}
-              type={field.type}
-              placeholder={field.placeholder}
-              disabled={submitting}
-            />
+      {FIELD_GROUPS.map((group) => (
+        <fieldset key={group.id} className="register-form__group">
+          <legend className="register-form__legend">{group.title}</legend>
+          <div className="register-form__grid">
+            {REGISTRATION_FIELDS.filter((field) => field.group === group.id).map(
+              (field) => (
+                <div
+                  key={field.name}
+                  className={
+                    field.multiline ? 'register-form__cell--full' : undefined
+                  }
+                >
+                  <FormField
+                    id={`reg-${field.name}`}
+                    label={field.label}
+                    value={values[field.name]}
+                    onChange={(value) => setField(field.name, value)}
+                    onBlur={() => blurField(field.name)}
+                    error={errors[field.name]}
+                    required={field.required}
+                    multiline={field.multiline}
+                    type={field.type}
+                    placeholder={field.placeholder}
+                    disabled={submitting}
+                  />
+                </div>
+              ),
+            )}
           </div>
-        ))}
-      </div>
+        </fieldset>
+      ))}
 
       {status === 'error' && submitError && (
         <p className="register-form__submit-error" role="alert">
