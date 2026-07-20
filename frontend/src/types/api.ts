@@ -74,3 +74,35 @@ export interface SearchResponse {
  * allowed values (the backend derives these from the live DB and sorts them).
  */
 export type FilterValues = Record<FilterField, string[]>;
+
+// ---- Registration (M5.2) --------------------------------------------------
+
+/** Request body for POST /api/businesses. Mirrors backend BusinessRegistration. */
+export interface BusinessRegistration {
+  business_name: string;
+  industry: string;
+  nature: string;
+  sub_category: string;
+  business_description: string;
+  products_services: string;
+  city: string;
+  state: string;
+  keywords?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+}
+
+/** The registration field keys, used to key form state and errors. */
+export type RegistrationField = keyof BusinessRegistration;
+
+/** Response from POST /api/businesses. */
+export interface RegisteredBusiness {
+  id: string;
+  business_name: string;
+}
+
+/** Format checks kept identical to the backend (schemas.py) so both agree. */
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+export const WEBSITE_RE = /^(https?:\/\/)?([\w-]+\.)+[\w-]+(\/\S*)?$/i;
