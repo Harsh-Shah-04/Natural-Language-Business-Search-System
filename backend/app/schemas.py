@@ -1,11 +1,20 @@
-"""Pydantic request/response schemas for the search API (M2 + M3.1)."""
+"""Pydantic request/response schemas for the search API (M2 + M3.1 + M3.2)."""
 
 from pydantic import BaseModel, Field, field_validator
+
+
+class SearchFilters(BaseModel):
+    industry: str | None = Field(default=None, min_length=1, max_length=100)
+    city: str | None = Field(default=None, min_length=1, max_length=100)
+    state: str | None = Field(default=None, min_length=1, max_length=100)
+    nature: str | None = Field(default=None, min_length=1, max_length=100)
+    sub_category: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
     limit: int = Field(default=10, ge=1, le=50)
+    filters: SearchFilters | None = None
 
     @field_validator("query")
     @classmethod
@@ -39,3 +48,4 @@ class SearchResult(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     results: list[SearchResult]
+    filters: SearchFilters | None = None
