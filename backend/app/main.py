@@ -1,9 +1,11 @@
 import threading
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app.embeddings import get_embedder, get_model_health
+from app.schemas import SearchRequest, SearchResponse
+from app.search import SearchUnavailableError, search_businesses
 
 
 def _warm_up_embedder() -> None:
@@ -35,3 +37,12 @@ def health() -> dict[str, str]:
 @app.get("/health/model")
 def health_model() -> dict[str, str]:
     return get_model_health()
+
+
+@app.post("/api/search")
+def search(request: SearchRequest) -> SearchResponse:
+    try:
+        results = search_businesses(request.query, request.limit)
+    except SearchUnavailableError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    return SearchResponse(query=request.query, results=results)
