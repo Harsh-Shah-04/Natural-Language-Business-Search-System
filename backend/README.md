@@ -26,11 +26,13 @@ no ingestion, no embedding model yet — those are M1.2/M1.3.
    Paste your connection string into `MONGODB_URI`, and set `DB_NAME` (default `business_search` is fine).
 
 4. **Create the two Atlas indexes** (Atlas Search index types aren't creatable via the
-   standard pymongo driver — this is a one-time step in the Atlas UI):
+   standard pymongo driver — this is a one-time step in the Atlas UI). The JSON Editor
+   only wants the index *definition* — Index Name, Database, Collection, and Index Type
+   are separate fields in the UI, not part of the pasted JSON:
    - In the cluster: Atlas Search tab -> Create Search Index -> JSON Editor
    - Select your `business_search` database, `businesses` collection (it will be created on first insert)
-   - Paste `scripts/atlas_indexes/vector_index.json` for the **vectorSearch**-type index
-   - Repeat, pasting `scripts/atlas_indexes/search_index.json` for the **search**-type index
+   - **Index 1:** Index Type = **Vector Search**, Index Name = `business_vector_index` (exact name — the app looks it up by this string), paste `scripts/atlas_indexes/vector_index.json` as the definition
+   - **Index 2:** Index Type = **Search**, Index Name = `business_search_index` (exact name), paste `scripts/atlas_indexes/search_index.json` as the definition
    - Wait for both to show status "Active" (usually under a minute for an empty collection)
 
 ## Run
@@ -53,3 +55,14 @@ The dataset's xlsx columns map to snake_case document fields going forward
 (`business_description`, `products_services`, `keywords`, `specialties`, etc.) —
 established here since the search index definition needs concrete field names,
 and M1.2's ingestion script will follow the same convention.
+
+## Notes
+
+- Embedding dimensionality (384) is defined once in `app/constants.py`. The
+  Atlas vector index's `numDimensions` in `scripts/atlas_indexes/vector_index.json`
+  can't import that constant (it's plain JSON) — keep them in sync by hand if
+  the embedding model ever changes.
+- `verify_atlas_spike.py` retries each index query briefly before failing, since
+  Atlas Search/Vector Search indexes update asynchronously after a write — an
+  immediate query can miss a just-inserted document even with a correctly
+  configured index.
