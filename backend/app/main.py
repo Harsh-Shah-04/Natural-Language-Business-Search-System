@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 
 from app.embeddings import get_embedder, get_model_health
+from app.filters import FilterValidationError, get_filter_allowlist
 from app.schemas import SearchRequest, SearchResponse
 from app.search import SearchUnavailableError, search_businesses
 
@@ -18,11 +19,22 @@ def _warm_up_embedder() -> None:
         pass
 
 
+def _warm_up_filters() -> None:
+    # Best-effort: a cache miss on first use just means the next call
+    # queries Mongo directly (see app/filters.py) — no state to record here.
+    try:
+        get_filter_allowlist()
+    except Exception:
+        pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load the embedding model in the background so the API is reachable
-    # instantly — no live request ever eats a cold model-load.
+    # Load the embedding model and the filter allow-list in the background
+    # so the API is reachable instantly — no live request ever eats a cold
+    # model-load or a cold allow-list query.
     threading.Thread(target=_warm_up_embedder, daemon=True).start()
+    threading.Thread(target=_warm_up_filters, daemon=True).start()
     yield
 
 
@@ -39,10 +51,19 @@ def health_model() -> dict[str, str]:
     return get_model_health()
 
 
+@app.get("/api/filters/values")
+def filters_values() -> dict[str, list[str]]:
+    allowlist = get_filter_allowlist()
+    return {field: sorted(values) for field, values in allowlist.items()}
+
+
 @app.post("/api/search")
 def search(request: SearchRequest) -> SearchResponse:
+    filters_dict = request.filters.model_dump() if request.filters else None
     try:
-        results = search_businesses(request.query, request.limit)
+        results = search_businesses(request.query, request.limit, filters_dict)
+    except FilterValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except SearchUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
-    return SearchResponse(query=request.query, results=results)
+    return SearchResponse(query=request.query, results=results, filters=request.filters)
