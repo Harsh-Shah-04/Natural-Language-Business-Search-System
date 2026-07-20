@@ -1,4 +1,4 @@
-"""Pydantic request/response schemas for the search API (M2)."""
+"""Pydantic request/response schemas for the search API (M2 + M3.1)."""
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -33,6 +33,7 @@ class SearchResult(BaseModel):
     keywords: str | None = None
     specialties: str | None = None
     score: float
+    matched_via: str
 
 
 class SearchResponse(BaseModel):
