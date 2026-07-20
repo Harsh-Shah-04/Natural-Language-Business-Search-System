@@ -1,8 +1,9 @@
-# Business Search — Frontend (M5.1)
+# Business Search — Frontend (M5.1 + M5.2)
 
 A clean React + TypeScript interface for the Natural Language Business Search
 backend. It consumes the existing FastAPI endpoints — no backend logic lives
-here.
+here. Two views, toggled by the header nav (no router — a dependency-free view
+switch): **Search** and **Register**.
 
 ## What it does
 
@@ -13,7 +14,14 @@ here.
 - **Results**: responsive cards showing business name, industry, sub category,
   location, description, products/services, relevance score, and how the result
   matched (Semantic / Keyword / Both).
-- **States**: loading spinner, empty ("no results"), and error messages.
+- **Register (M5.2)**: a validated form (`POST /api/businesses`) to add a new
+  business. Required fields plus optional contact details; client-side checks
+  for required fields, email, and website URL mirror the backend. On success it
+  clears the form and offers a one-click "Search this business" that jumps to
+  the Search view and runs the query — the new business is searchable
+  immediately.
+- **States**: loading spinner, empty ("no results"), error messages, and
+  per-field + submit-level validation errors on the form.
 
 ## Stack
 
@@ -24,12 +32,13 @@ React 19, TypeScript, Vite. No UI kit, no state library, no HTTP client —
 
 ```
 src/
-  api/         HTTP client + typed endpoint functions (service layer)
+  api/         HTTP client + typed endpoint functions (search, businesses)
   types/       API contract types, mirroring backend/app/schemas.py
-  hooks/       useSearch (request lifecycle), useFilterOptions (dropdown data)
+  hooks/       useSearch, useFilterOptions, useRegistrationForm
   components/  SearchBar, FilterPanel, FilterSelect, ResultsList,
-               ResultCard, StatusMessage
-  App.tsx      composition + state wiring
+               ResultCard, StatusMessage, FormField
+  pages/       SearchPage, RegisterPage
+  App.tsx      shell: header nav + view switch + search handoff
 ```
 
 ## Running

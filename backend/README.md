@@ -16,9 +16,10 @@ keyword gating, weighted RRF, narrowed search fields) — recovers roughly
 half the gap. **M4.2** adds an optional cross-encoder reranking stage after
 hybrid, which the eval shows closes the rest of the gap to vector-only — so
 it ships enabled, on that evidence, per design-doc-v2.md's evidence-gating
-rule. Same API, same filters, same eval framework throughout. Business
-registration and the frontend are separate milestones (M3.3/M3.4), not
-implemented here.
+rule. Same API, same filters, same eval framework throughout. **M5.2** adds
+business registration (`POST /api/businesses`), which reuses this embedding
+pipeline so a registered business is immediately searchable — see "Business
+registration" below. The React frontend lives in `../frontend`.
 
 ## Setup
 
@@ -113,6 +114,41 @@ curl -X POST http://127.0.0.1:8000/api/search \
   -d '{"query": "GST Expert", "limit": 5}'
 ```
 
+Register a business (M5.2):
+```
+curl -X POST http://127.0.0.1:8000/api/businesses \
+  -H "Content-Type: application/json" \
+  -d '{"business_name":"Acme Cold Chain","industry":"Logistics",
+       "nature":"Services","sub_category":"Cold Storage",
+       "business_description":"Refrigerated warehousing and last-mile cold delivery.",
+       "products_services":"Cold storage, refrigerated transport","city":"Pune","state":"Maharashtra"}'
+```
+
+## Business registration (M5.2)
+
+`POST /api/businesses` adds a new business through the same pipeline as the bulk
+seed, so it becomes searchable via `/api/search` immediately — no separate
+indexing step:
+
+- **Reuses the embedding pipeline** — `app/registration.py` calls the same
+  `build_embedding_text()` + `embed_texts()` as `scripts/seed.py`; embeddings
+  are produced in exactly one place.
+- **Same document shape** as a seeded business (the 14 fields), so search reads
+  it back unchanged. The form's optional `address` is stored as an extra field
+  (not part of the search projection); `contact_person`/`specialties` aren't
+  collected and are stored as `None` for shape uniformity.
+- **Filters stay correct** — a successful insert calls
+  `invalidate_filter_cache()` (the seam `app/filters.py` was built for), so a
+  business registered in a new city/industry/sub_category becomes a valid filter
+  value on the next request.
+- **Validation** — Pydantic (`BusinessRegistration`) rejects missing required
+  fields, and malformed email / website with `422`; a duplicate `business_name`
+  (unique index) returns `409`; an embedding-model or DB outage returns `503`.
+  Response is `201` with `{id, business_name}`.
+- The search API, its request/response contract, and the search pipeline are
+  unchanged — registration only adds a schema, `app/registration.py`, and this
+  one route.
+
 ## Field naming convention
 
 The dataset's 14 xlsx columns map to snake_case document fields: `business_name`,
@@ -186,12 +222,12 @@ flagged. Embedding model or Atlas unavailable -> 503, never a raw 500.
 
 **`GET /api/filters/values`** — returns the live, cached allow-list per
 field: `{"industry": [...], "city": [...], "state": [...], "nature": [...],
-"sub_category": [...]}`. Backs the 422 validation above and would back
-frontend dropdowns (M3.4, not implemented here). Cached in-process, warmed
-in the background on startup (same pattern as the embedding model);
-`app/filters.py` exposes `invalidate_filter_cache()` for M3.3's registration
-endpoint to call later — no caller yet, since registration isn't
-implemented in this milestone.
+"sub_category": [...]}`. Backs the 422 validation above and the frontend
+filter dropdowns. Cached in-process, warmed in the background on startup
+(same pattern as the embedding model); `app/filters.py` exposes
+`invalidate_filter_cache()`, which the M5.2 registration endpoint now calls
+after each insert so a newly registered business's field values become valid
+filters immediately.
 
 **Why filtering doesn't just bolt a `$match` onto the existing pipeline:**
 Atlas's `$vectorSearch` truncates to its own `limit` *inside* the stage,
