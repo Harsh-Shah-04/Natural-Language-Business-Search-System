@@ -1,8 +1,8 @@
-# Backend — M1.1 (Atlas + FastAPI spike)
+# Backend — M1.1 + M1.2 (Atlas spike + raw ingestion)
 
-Scope of this milestone only: prove the MongoDB Atlas index configuration
-works before any real data or ML code depends on it. No business logic,
-no ingestion, no embedding model yet — those are M1.2/M1.3.
+**M1.1** proved the MongoDB Atlas index configuration works before any real
+data or ML code depends on it. **M1.2** adds raw ingestion of the actual
+120-business dataset — no embedding model yet, that's M1.3.
 
 ## Setup
 
@@ -41,6 +41,22 @@ no ingestion, no embedding model yet — those are M1.2/M1.3.
    it up by this string) pasting `vector_index.json`, and Index 2 (Type = Search, Name
    = `business_search_index`) pasting `search_index.json`.
 
+## Seed the dataset (M1.2)
+
+Parses `Business_Matchmaking_Test_Dataset_V2_120_Companies.xlsx` (expected at
+the repo root, one level above `backend/`) and inserts all 14 fields per
+business into the `businesses` collection — no embeddings yet. Safe to
+re-run: clears and reinserts the collection each time, so it always
+converges on exactly 120 documents.
+
+```
+uv run python scripts/seed.py
+```
+
+Expected output: `PASS: seeded 120 businesses from Business_Matchmaking_Test_Dataset_V2_120_Companies.xlsx`
+
+To seed from a different file path: `uv run python scripts/seed.py path/to/dataset.xlsx`
+
 ## Run
 
 Start the API:
@@ -57,10 +73,11 @@ Expected output: `PASS: both $vectorSearch and $search found the test document`
 
 ## Field naming convention
 
-The dataset's xlsx columns map to snake_case document fields going forward
-(`business_description`, `products_services`, `keywords`, `specialties`, etc.) —
-established here since the search index definition needs concrete field names,
-and M1.2's ingestion script will follow the same convention.
+The dataset's 14 xlsx columns map to snake_case document fields: `business_name`,
+`nature`, `industry`, `sub_category`, `city`, `state`, `contact_person`, `email`,
+`website`, `phone`, `business_description`, `products_services`, `keywords`,
+`specialties`. Established in M1.1 (the search index needs concrete field names)
+and applied to all 14 fields by M1.2's ingestion script.
 
 ## Notes
 
