@@ -1,14 +1,17 @@
-# Backend — M1.1-M1.3 + M2 + M3.1 (Atlas, ingestion, embeddings, hybrid search)
+# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 (Atlas, ingestion, embeddings, filtered hybrid search)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
 120-business dataset. **M1.3** backfills real embeddings onto that data and
 adds background model warm-up + a dedicated model health check. **M2** added
 `POST /api/search` as vector-only semantic search (naive baseline). **M3.1**
-upgrades it to hybrid: Atlas `$vectorSearch` + `$search` fused with
-Reciprocal Rank Fusion — same route, same request shape. Cross-encoder
-reranking is still deferred (M4.2, gated on M4.1's eval showing it helps);
-`filters` are still deferred (M3.2).
+upgraded it to hybrid: Atlas `$vectorSearch` + `$search` fused with
+Reciprocal Rank Fusion — same route, same request shape. **M3.2** adds
+optional `filters` (industry/city/state/nature/sub_category), validated
+against a live, cached DB allow-list — closes the NoSQL-injection-shaped gap
+the architecture review flagged. Cross-encoder reranking is still deferred
+(M4.2, gated on M4.1's eval showing it helps); business registration and the
+frontend are separate milestones (M3.3/M3.4), not implemented here.
 
 ## Setup
 
@@ -134,42 +137,80 @@ and applied to all 14 fields by M1.2's ingestion script.
   work end-to-end with real embeddings, not just the synthetic spike vector
   from M1.1.
 
-## Search API (M2 + M3.1 hybrid)
+## Search API (M2 + M3.1 hybrid + M3.2 filters)
 
-`POST /api/search` — hybrid semantic + keyword search. Runs Atlas
-`$vectorSearch` and Atlas `$search` (on `business_description`,
+`POST /api/search` — hybrid semantic + keyword search with optional filters.
+Runs Atlas `$vectorSearch` and Atlas `$search` (on `business_description`,
 `products_services`, `keywords`, `specialties`) **concurrently** (2-worker
 `ThreadPoolExecutor` — pymongo's `MongoClient` is thread-safe), fuses the two
 ranked candidate lists with Reciprocal Rank Fusion (`score = Σ 1/(60 + rank)`,
 k=60 — standard IR-literature default, used as-is per design-doc-v2.md), and
 returns the top N. Same route and request shape as M2's vector-only baseline
-— extension, not rewrite. Still no `filters` param (M3.2) and no
-cross-encoder reranking (gated on M4.1's eval showing it actually helps).
+— extension, not rewrite. Still no cross-encoder reranking (gated on M4.1's
+eval showing it actually helps).
 
-Request: unchanged from M2.
+Request:
 ```json
-{"query": "GST Expert", "limit": 10}
+{"query": "GST Expert", "limit": 10, "filters": {"city": "Mumbai"}}
 ```
 `query`: required, non-blank after stripping whitespace, max 500 chars.
 `limit`: optional, default 10, bounded 1-50. Candidate pool per retrieval
 source is `max(30, limit * 3)` — design-doc-v2.md's documented "top ~30" at
 the default `limit=10`, generalized so a larger `limit` doesn't starve fusion.
+`filters`: optional, all 5 fields optional — `industry`, `city`, `state`,
+`nature`, `sub_category`. Omit entirely, or omit individual fields, for no
+filtering on that dimension.
 
 Response: `{"query": "...", "results": [{...business fields..., "id": "...",
-"score": 0.033, "matched_via": "both"}]}`. `matched_via` is `"semantic"`,
-`"keyword"`, or `"both"`. **`score` is now the RRF-fused value, not raw
-cosine similarity** — small numbers (max ~0.033 if ranked #1 by both
-sources), not M2's ~0.7-0.9 range. `embedding` is never returned.
+"score": 0.033, "matched_via": "both"}], "filters": {...}}`. `matched_via` is
+`"semantic"`, `"keyword"`, or `"both"`. **`score` is the RRF-fused value, not
+raw cosine similarity** — small numbers (max ~0.033 if ranked #1 by both
+sources). `embedding` is never returned.
 
-Error handling: unchanged from M2 — invalid request body -> 422; embedding
-model or Atlas unavailable -> 503 with a plain-language `detail` message,
-never a raw 500 or leaked internals.
+Error handling: invalid request body -> 422. A filter value not in the live
+allow-list -> 422 with a plain message (e.g. `"invalid value for filter
+'city': 'FakeCity' is not a known city"`) — never passed through as a raw
+query clause, closing the NoSQL-injection-shaped gap the architecture review
+flagged. Embedding model or Atlas unavailable -> 503, never a raw 500.
 
-Benchmarked against the live Atlas cluster (30 requests, warm model, real
-HTTP + parallel embed/Atlas roundtrip): **p50 ~62ms, p95 ~80ms, mean ~71ms**
-— nearly identical to M2's vector-only baseline (p50 ~60ms), confirming the
-parallel retrieval didn't cost meaningful latency. Well under the design
-doc's <500ms p50 target for the eventual hybrid+rerank pipeline.
+**`GET /api/filters/values`** — returns the live, cached allow-list per
+field: `{"industry": [...], "city": [...], "state": [...], "nature": [...],
+"sub_category": [...]}`. Backs the 422 validation above and would back
+frontend dropdowns (M3.4, not implemented here). Cached in-process, warmed
+in the background on startup (same pattern as the embedding model);
+`app/filters.py` exposes `invalidate_filter_cache()` for M3.3's registration
+endpoint to call later — no caller yet, since registration isn't
+implemented in this milestone.
+
+**Why filtering doesn't just bolt a `$match` onto the existing pipeline:**
+Atlas's `$vectorSearch` truncates to its own `limit` *inside* the stage,
+before any later pipeline stage runs. Filtering the normal ~30-doc candidate
+pool after the fact could correctly-but-uselessly return far fewer results
+than actually exist, if the matching businesses didn't happen to rank in the
+top 30 by similarity alone. Fix: when any filter is active, the candidate
+pool widens to 200 (`POOL_SIZE_FILTERED` in `app/search.py`) — safely above
+the current 120-doc corpus — before filtering runs. No Atlas index changes
+needed. At meaningfully larger corpora, this would need Atlas's native
+filter-type index fields (pre-filtering before the HNSW search itself)
+instead of over-fetching; explicitly out of scope at this dataset's size.
+
+Benchmarked against the live Atlas cluster (30 requests each, warm model):
+unfiltered p50 ~72ms, filtered-by-city p50 ~68ms, filtered-by-2-fields p50
+~67ms — filtering costs no meaningful latency at this corpus size, confirming
+the pool-widening approach is cheap here.
+
+Verified against the live cluster:
+- `GET /api/filters/values` returns the real current values (10 industries,
+  10 cities, 9 states, 2 natures, 40 sub-categories) — all 120 documents have
+  every one of the 5 filterable fields populated (verified via
+  `count_documents` for missing/null), so the allow-list is complete.
+- `filters: {"city": "Mumbai"}` -> all 10 returned results are in Mumbai.
+- `filters: {"city": "FakeCity"}` -> `422`, exactly per roadmap.md's stated
+  test criterion.
+- `filters: {"industry": "Finance", "city": "Mumbai"}` (a narrow, real
+  combination) -> exactly the 2 matching businesses, both tagged correctly
+  — a naturally-occurring rare combination that wasn't truncated, evidence
+  the pool-widening fix actually works, not just passes a synthetic test.
 
 Verified against the live cluster:
 - "GST Expert" -> all 3 GST Consultants rank first, tagged `matched_via:
