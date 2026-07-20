@@ -1,12 +1,12 @@
 """
-Hybrid semantic + keyword search (M3.1).
+Hybrid semantic + keyword search with optional filters (M3.1 + M3.2).
 
 Runs Atlas $vectorSearch and Atlas $search concurrently, fuses the two
 candidate lists with Reciprocal Rank Fusion, and returns the top N. Same
 endpoint contract as M2's vector-only baseline — extension, not rewrite.
 
-Deliberately no `filters` param (M3.2) and no cross-encoder reranking
-(gated on M4.1's eval showing it actually helps — see design-doc-v2.md).
+Deliberately no cross-encoder reranking (gated on M4.1's eval showing it
+actually helps — see design-doc-v2.md).
 """
 
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +15,7 @@ from pymongo.errors import PyMongoError
 
 from app.db import get_db
 from app.embeddings import embed_texts
+from app.filters import FilterValidationError, validate_filters
 
 VECTOR_INDEX_NAME = "business_vector_index"
 SEARCH_INDEX_NAME = "business_search_index"
@@ -26,6 +27,16 @@ SEARCH_TEXT_PATHS = ["business_description", "products_services", "keywords", "s
 # documented default.
 POOL_SIZE_DEFAULT = 30
 POOL_SIZE_MULTIPLIER = 3
+
+# Atlas $vectorSearch truncates to its own `limit` INSIDE the stage, before
+# any later $match can run — so a naive post-filter on the normal ~30-doc
+# pool could correctly-but-uselessly filter down to near-zero results even
+# when the full corpus has plenty of matches. When any filter is active,
+# widen the pool past the current corpus size (120 docs) so filtering never
+# starves the result set. At meaningfully larger corpora this would need
+# Atlas's native filter-type index fields (pre-filtering before HNSW search)
+# instead of over-fetching — out of scope at this dataset's actual size.
+POOL_SIZE_FILTERED = 200
 
 # Standard Atlas guidance: numCandidates should be well above the
 # vectorSearch stage's own `limit` for good recall (commonly 10-20x). At
@@ -62,41 +73,51 @@ class SearchUnavailableError(Exception):
     """Raised when the embedding model or Atlas is unavailable for search."""
 
 
-def _vector_search(businesses, query_vector: list[float], pool_size: int) -> list[dict]:
+def _vector_search(
+    businesses, query_vector: list[float], pool_size: int, filters: dict[str, str]
+) -> list[dict]:
     num_candidates = max(pool_size * CANDIDATE_MULTIPLIER, MIN_CANDIDATES)
-    return list(
-        businesses.aggregate(
-            [
-                {
-                    "$vectorSearch": {
-                        "index": VECTOR_INDEX_NAME,
-                        "path": "embedding",
-                        "queryVector": query_vector,
-                        "numCandidates": num_candidates,
-                        "limit": pool_size,
-                    }
-                },
-                {"$project": _PROJECT_STAGE},
-            ]
-        )
-    )
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": VECTOR_INDEX_NAME,
+                "path": "embedding",
+                "queryVector": query_vector,
+                "numCandidates": num_candidates,
+                "limit": pool_size,
+            }
+        },
+    ]
+    if filters:
+        # $vectorSearch already truncated to `pool_size` above — filtering
+        # here can only ever narrow further, never recover results outside
+        # that pool. That's exactly why pool_size is widened by the caller
+        # when filters are active.
+        pipeline.append({"$match": filters})
+    pipeline.append({"$project": _PROJECT_STAGE})
+    return list(businesses.aggregate(pipeline))
 
 
-def _keyword_search(businesses, query: str, pool_size: int) -> list[dict]:
-    return list(
-        businesses.aggregate(
-            [
-                {
-                    "$search": {
-                        "index": SEARCH_INDEX_NAME,
-                        "text": {"query": query, "path": SEARCH_TEXT_PATHS},
-                    }
-                },
-                {"$limit": pool_size},
-                {"$project": _PROJECT_STAGE},
-            ]
-        )
-    )
+def _keyword_search(
+    businesses, query: str, pool_size: int, filters: dict[str, str]
+) -> list[dict]:
+    pipeline = [
+        {
+            "$search": {
+                "index": SEARCH_INDEX_NAME,
+                "text": {"query": query, "path": SEARCH_TEXT_PATHS},
+            }
+        },
+    ]
+    if filters:
+        # $match before $limit here (unlike $vectorSearch's internal
+        # truncation): $search itself doesn't cap results, so filtering
+        # before the $limit stage means pool_size counts filtered results,
+        # not raw hits that might get discarded before filtering ever runs.
+        pipeline.append({"$match": filters})
+    pipeline.append({"$limit": pool_size})
+    pipeline.append({"$project": _PROJECT_STAGE})
+    return list(businesses.aggregate(pipeline))
 
 
 def _reciprocal_rank_fusion(
@@ -124,19 +145,39 @@ def _reciprocal_rank_fusion(
     return results
 
 
-def search_businesses(query: str, limit: int) -> list[dict]:
+def search_businesses(
+    query: str, limit: int, filters: dict[str, str | None] | None = None
+) -> list[dict]:
     try:
         query_vector = embed_texts([query])[0]
     except Exception as e:
         raise SearchUnavailableError(f"embedding model unavailable: {e}") from e
 
-    pool_size = max(POOL_SIZE_DEFAULT, limit * POOL_SIZE_MULTIPLIER)
+    try:
+        active_filters = validate_filters(filters)
+    except FilterValidationError:
+        raise
+    except (PyMongoError, RuntimeError) as e:
+        # The allow-list itself is DB-backed (cached, but a cache miss
+        # queries Mongo) — its own backend failures are a 503 condition,
+        # distinct from a validation failure (422).
+        raise SearchUnavailableError(f"filter allow-list unavailable: {e}") from e
+
+    pool_size = (
+        POOL_SIZE_FILTERED
+        if active_filters
+        else max(POOL_SIZE_DEFAULT, limit * POOL_SIZE_MULTIPLIER)
+    )
 
     try:
         businesses = get_db()["businesses"]
         with ThreadPoolExecutor(max_workers=2) as executor:
-            vector_future = executor.submit(_vector_search, businesses, query_vector, pool_size)
-            keyword_future = executor.submit(_keyword_search, businesses, query, pool_size)
+            vector_future = executor.submit(
+                _vector_search, businesses, query_vector, pool_size, active_filters
+            )
+            keyword_future = executor.submit(
+                _keyword_search, businesses, query, pool_size, active_filters
+            )
             vector_results = vector_future.result()
             keyword_results = keyword_future.result()
     except (PyMongoError, RuntimeError) as e:
