@@ -1,11 +1,10 @@
 """
-M1.2 raw ingestion.
+M1.2 raw ingestion + M1.3 embedding backfill.
 
-Parses the provided .xlsx dataset and inserts all 14 fields per business
-into MongoDB, unmodified — deliberately no embedding computation here, so
-that data-pipeline bugs (bad rows, encoding issues, column drift) are
-isolated from ML bugs. Embeddings are backfilled onto these same documents
-by M1.3.
+Parses the provided .xlsx dataset, inserts all 14 fields per business into
+MongoDB, then computes a BAAI/bge-small-en-v1.5 embedding per business from
+the fields with semantic signal (see app/embeddings.py) and backfills the
+384-dim `embedding` field before insert.
 
 Safe to re-run: clears the businesses collection and reinserts fresh each
 time, so repeated runs always converge on exactly one document per row of
@@ -17,12 +16,14 @@ Run: uv run python scripts/seed.py [path/to/dataset.xlsx]
 """
 
 import sys
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
 from openpyxl import load_workbook
 
 from app.db import get_db
+from app.embeddings import build_embedding_text, embed_texts
 
 # Repo layout: backend/scripts/seed.py -> backend/ -> repo root -> dataset.
 DEFAULT_DATASET_PATH = (
@@ -86,6 +87,20 @@ def main() -> int:
     if len(names) != len(set(names)):
         print("FAIL: duplicate business_name values found in the source file")
         return 1
+
+    embed_start = time.perf_counter()
+    texts = [build_embedding_text(doc) for doc in documents]
+    vectors = embed_texts(texts)
+    embed_elapsed = time.perf_counter() - embed_start
+
+    for doc, vector in zip(documents, vectors):
+        doc["embedding"] = vector
+
+    docs_per_sec = len(documents) / embed_elapsed if embed_elapsed > 0 else float("inf")
+    print(
+        f"Embedded {len(documents)} businesses in {embed_elapsed:.2f}s "
+        f"({docs_per_sec:.1f} docs/sec, model load included)"
+    )
 
     db = get_db()
     businesses = db["businesses"]
