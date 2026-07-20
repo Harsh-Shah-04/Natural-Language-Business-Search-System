@@ -25,15 +25,21 @@ no ingestion, no embedding model yet — those are M1.2/M1.3.
    ```
    Paste your connection string into `MONGODB_URI`, and set `DB_NAME` (default `business_search` is fine).
 
-4. **Create the two Atlas indexes** (Atlas Search index types aren't creatable via the
-   standard pymongo driver — this is a one-time step in the Atlas UI). The JSON Editor
-   only wants the index *definition* — Index Name, Database, Collection, and Index Type
-   are separate fields in the UI, not part of the pasted JSON:
-   - In the cluster: Atlas Search tab -> Create Search Index -> JSON Editor
-   - Select your `business_search` database, `businesses` collection (it will be created on first insert)
-   - **Index 1:** Index Type = **Vector Search**, Index Name = `business_vector_index` (exact name — the app looks it up by this string), paste `scripts/atlas_indexes/vector_index.json` as the definition
-   - **Index 2:** Index Type = **Search**, Index Name = `business_search_index` (exact name), paste `scripts/atlas_indexes/search_index.json` as the definition
-   - Wait for both to show status "Active" (usually under a minute for an empty collection)
+4. **Create the two Atlas indexes:**
+   ```
+   uv run python scripts/create_atlas_indexes.py
+   ```
+   Reads `scripts/atlas_indexes/*.json`, creates `business_vector_index` (Vector Search)
+   and `business_search_index` (Search) via the pymongo driver, and waits until both
+   are queryable. Safe to re-run — skips indexes that already exist.
+
+   **Manual fallback** (if you'd rather use the Atlas UI): Atlas Search tab -> Create
+   Search Index -> JSON Editor. The JSON Editor only wants the index *definition* —
+   Index Name, Database, Collection, and Index Type are separate UI fields, not part
+   of the pasted JSON. Select `business_search` / `businesses`, then create Index 1
+   (Type = Vector Search, Name = `business_vector_index` — exact name, the app looks
+   it up by this string) pasting `vector_index.json`, and Index 2 (Type = Search, Name
+   = `business_search_index`) pasting `search_index.json`.
 
 ## Run
 
@@ -66,3 +72,7 @@ and M1.2's ingestion script will follow the same convention.
   Atlas Search/Vector Search indexes update asynchronously after a write — an
   immediate query can miss a just-inserted document even with a correctly
   configured index.
+- Common first-run failure: `bad auth : Authentication failed` usually means the
+  connection string's username is still the literal `<db_username>` placeholder
+  from Atlas's template — check Database Access in the Atlas UI for the actual
+  username and swap it in.
