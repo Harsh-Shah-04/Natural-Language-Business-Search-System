@@ -7,8 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.embeddings import get_embedder, get_model_health
 from app.filters import FilterValidationError, get_filter_allowlist
+from app.registration import (
+    BusinessConflictError,
+    RegistrationUnavailableError,
+    register_business,
+)
 from app.reranker import get_reranker, get_reranker_health
-from app.schemas import SearchRequest, SearchResponse
+from app.schemas import (
+    BusinessRegistration,
+    RegisteredBusiness,
+    SearchRequest,
+    SearchResponse,
+)
 from app.search import RERANK_ENABLED, SearchUnavailableError, search_businesses
 
 
@@ -111,3 +121,17 @@ def search(request: SearchRequest) -> SearchResponse:
     except SearchUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     return SearchResponse(query=request.query, results=results, filters=request.filters)
+
+
+@app.post("/api/businesses", status_code=201)
+def create_business(business: BusinessRegistration) -> RegisteredBusiness:
+    # Pydantic has already validated the body (422 on bad input, incl. the
+    # email/website format checks). Reuse the shared embedding pipeline and
+    # store the doc so it's searchable via the existing /api/search route.
+    try:
+        created = register_business(business.model_dump())
+    except BusinessConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except RegistrationUnavailableError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    return RegisteredBusiness(**created)

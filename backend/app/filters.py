@@ -9,9 +9,9 @@ never passed through as a raw query clause — this is what closes the
 NoSQL-injection-shaped gap the architecture review flagged.
 
 Cached in-process; call invalidate_filter_cache() after any write that
-could add a new distinct value. No caller does this yet — business
-registration (M3.3) isn't implemented in this milestone — but the seam is
-ready for it.
+could add a new distinct value. The M5.2 registration endpoint
+(app/registration.py) calls it after each insert, so a business registered
+in a new city/industry/sub_category becomes a valid filter value right away.
 """
 
 import threading
