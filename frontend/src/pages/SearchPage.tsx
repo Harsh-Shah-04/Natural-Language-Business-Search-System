@@ -87,7 +87,7 @@ export function SearchPage({ trigger }: SearchPageProps) {
 
         {status === 'success' &&
           (results.length > 0 ? (
-            <ResultsList results={results} />
+            <ResultsList results={results} query={submittedQuery} />
           ) : (
             <StatusMessage
               variant="empty"
