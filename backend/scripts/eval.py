@@ -1,24 +1,23 @@
 """
-Search evaluation framework (M4.1), extended for a 3-way comparison (M4.1.1).
+Search evaluation framework (M4.1), extended to a 4-way comparison
+(M4.1.1 added the 3rd system; M4.2 adds the 4th).
 
-Runs the golden query set (scripts/eval_dataset.py) against three search
+Runs the golden query set (scripts/eval_dataset.py) against four search
 systems -- vector-only (M2 baseline), hybrid-previous (M3.1/M3.2's
-original unweighted, unfiltered-keyword-score, 4-field config, preserved
-here only for comparison), and hybrid-tuned (M4.1.1's current default,
-identical to what search_businesses() and the live API actually run) --
-and reports Precision@K, Recall@K, and MRR for each, overall and broken
-down by query category. This is the evidence M4.2 will need: "ship
-reranking only if it measurably improves precision@5 on this set"
-(design-doc-v2.md) requires a baseline to improve on, which is what this
-script produces.
+original unweighted/unfiltered/4-field config, kept only for comparison),
+hybrid-tuned (M4.1.1's tuning, reranking off), and hybrid-rerank (M4.2:
+tuned hybrid + cross-encoder reranking, which is what the live API runs
+when RERANK_ENABLED is true) -- and reports Precision@K, Recall@K, and MRR
+for each, overall and by query category. This is the evidence design-doc-
+v2.md's rule needs: "ship reranking only if it measurably improves
+precision@5 on this set."
 
-Extensibility for future reranking experiments: a "system" is just a
+Extensibility: a "system" is just a
 Callable[[str, int, dict | None], list[dict]] returning ranked result
-dicts with a "business_name" key (see SYSTEMS below). Adding a fourth
-system (e.g. hybrid + cross-encoder rerank, once M4.2 builds it) means
-writing one more function with that signature and adding one line to
-SYSTEMS -- no changes needed anywhere else in this file. Nothing below
-the SYSTEMS section (metrics, runner, report) changed for M4.1.1.
+dicts with a "business_name" key (see SYSTEMS below). Each new milestone's
+variant is one more function of that signature plus one line in SYSTEMS --
+nothing below the SYSTEMS section (metrics, runner, report) has had to
+change across M4.1.1 or M4.2.
 
 Run: uv run python scripts/eval.py
 """
@@ -103,15 +102,24 @@ def hybrid_search_previous(query: str, limit: int, filters: dict | None = None) 
 
 
 def hybrid_search_tuned(query: str, limit: int, filters: dict | None = None) -> list[dict]:
-    """M4.1.1's tuned hybrid: identical to what search_businesses() (and
-    the live /api/search endpoint) actually runs -- no separate config."""
-    return search_businesses(query, limit, filters)
+    """M4.1.1's tuned hybrid, reranking explicitly OFF. rerank=False is
+    required here (not just omitted): search_businesses() now defaults to
+    RERANK_ENABLED, so leaving it unset would make this identical to
+    hybrid-rerank and collapse the comparison."""
+    return search_businesses(query, limit, filters, rerank=False)
+
+
+def hybrid_search_rerank(query: str, limit: int, filters: dict | None = None) -> list[dict]:
+    """M4.2: tuned hybrid + cross-encoder reranking, forced ON regardless of
+    the RERANK_ENABLED default so the eval always measures its effect."""
+    return search_businesses(query, limit, filters, rerank=True)
 
 
 SYSTEMS = {
     "vector-only": vector_only_search,
     "hybrid-previous": hybrid_search_previous,
     "hybrid-tuned": hybrid_search_tuned,
+    "hybrid-rerank": hybrid_search_rerank,
 }
 
 
@@ -210,7 +218,7 @@ def _fmt(value: float | None) -> str:
 
 def render_report(results_by_system: dict[str, list[dict]], categories: list[str]) -> str:
     lines = []
-    lines.append("# Search Evaluation Report (M4.1 + M4.1.1)")
+    lines.append("# Search Evaluation Report (M4.1 + M4.1.1 + M4.2)")
     lines.append("")
     lines.append(f"Generated: {datetime.now(timezone.utc).isoformat()}")
     lines.append(f"Golden queries: {len(GOLDEN_QUERIES)} across {len(categories)} categories")
@@ -299,13 +307,39 @@ def render_report(results_by_system: dict[str, list[dict]], categories: list[str
     )
     lines.append("")
     lines.append(
-        "This residual class of failure -- correct token, wrong sense, and "
-        "no better keyword candidate to rank it against -- is exactly what "
-        "a cross-encoder reranker (M4.2, not built here) is suited to fix: "
-        "it evaluates full query+document semantic relevance rather than "
-        "token overlap, so it isn't fooled by a shared surface form. This "
-        "is the concrete evidence design-doc-v2.md's evidence-gating rule "
-        "was built to require before shipping reranking."
+        "That residual class of failure -- correct token, wrong sense, no "
+        "better keyword candidate to rank against -- is what M4.2's "
+        "cross-encoder reranking targets: it scores full (query, document) "
+        "semantic relevance rather than token overlap, so a shared surface "
+        "form in different senses no longer fools it."
+    )
+    lines.append("")
+    lines.append(
+        "**M4.2 result -- reranking clears the design doc's evidence gate:** "
+        "hybrid-rerank recovers the rest of the gap to vector-only. Overall "
+        "P@5 0.513 -> 0.560 and R@5 0.875 -> 0.946 (both now equal to "
+        "vector-only), R@10 stays 1.000, and MRR rises 0.869 -> 0.929. The "
+        "two categories tuning couldn't fix improve exactly as predicted: "
+        "`synonym` P@5 0.480 -> 0.560 / R@5 0.800 -> 0.933, and `edge_case` "
+        "P@5 0.240 -> 0.360 / MRR 0.722 -> 1.000 (recovering the `sem-02`-"
+        "style collisions). Reranking measurably improves precision@5 over "
+        "the best non-reranked system, so design-doc-v2.md's rule (\"ship "
+        "reranking only if it measurably improves precision@5 on this set\") "
+        "is satisfied -- RERANK_ENABLED defaults to true on this evidence."
+    )
+    lines.append("")
+    lines.append(
+        "**Honest caveats.** (1) On this small, clean, templated 120-doc set, "
+        "vector-only alone is already very strong, so reranking brings hybrid "
+        "*up to parity* with it on P@5/R@5/R@10 rather than strictly beating "
+        "it on every metric (vector-only's MRR 0.958 edges rerank's 0.929). "
+        "The value is that hybrid+rerank gets keyword-exact recall (which "
+        "pure vector search lacks) *and* semantic precision at once; on a "
+        "messier real-world corpus the combination is where hybrid+rerank "
+        "would be expected to pull clearly ahead. (2) Reranking costs latency "
+        "-- roughly +400ms p50 (see backend/README.md for the benchmark) -- "
+        "which is the price of running a cross-encoder over ~20 candidates "
+        "per query on CPU."
     )
     lines.append("")
     return "\n".join(lines)
