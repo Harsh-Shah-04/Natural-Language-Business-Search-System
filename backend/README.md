@@ -1,9 +1,11 @@
-# Backend — M1.1 + M1.2 + M1.3 (Atlas spike + ingestion + embeddings)
+# Backend — M1.1-M1.3 + M2 (Atlas spike, ingestion, embeddings, search API)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
 120-business dataset. **M1.3** backfills real embeddings onto that data and
-adds background model warm-up + a dedicated model health check.
+adds background model warm-up + a dedicated model health check. **M2** adds
+`POST /api/search` — vector-only semantic search (naive baseline; hybrid
+search + RRF + reranking are M3.1/M4.2, not implemented here).
 
 ## Setup
 
@@ -88,6 +90,13 @@ uv run python scripts/verify_atlas_spike.py
 ```
 Expected output: `PASS: both $vectorSearch and $search found the test document`
 
+Search (once seeded — see above):
+```
+curl -X POST http://127.0.0.1:8000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "GST Expert", "limit": 5}'
+```
+
 ## Field naming convention
 
 The dataset's 14 xlsx columns map to snake_case document fields: `business_name`,
@@ -121,6 +130,42 @@ and applied to all 14 fields by M1.2's ingestion script.
   Packaging manufacturers — confirms the assignment's own example queries
   work end-to-end with real embeddings, not just the synthetic spike vector
   from M1.1.
+
+## Search API (M2)
+
+`POST /api/search` — vector-only semantic search, the naive baseline per
+design-doc-v2.md. No keyword search, RRF, or reranking yet (M3.1/M4.2).
+
+Request:
+```json
+{"query": "GST Expert", "limit": 10}
+```
+`query`: required, non-blank after stripping whitespace, max 500 chars.
+`limit`: optional, default 10, bounded 1-50.
+
+Response: `{"query": "...", "results": [{...business fields..., "id": "...", "score": 0.89}]}`.
+`embedding` is never returned to the client. `score` is Atlas's `vectorSearchScore`
+(cosine similarity, since vectors are normalized and the index uses `cosine`).
+
+Error handling: invalid request body -> 422 (FastAPI/Pydantic). Embedding
+model or Atlas unavailable -> 503 with a plain-language `detail` message
+(never a raw 500 or leaked internals — `app/search.py`'s `SearchUnavailableError`
+wraps both the embed-model-load path and the Mongo query path, including
+`get_db()` failing before a query is even attempted).
+
+`numCandidates` for `$vectorSearch` is `max(limit * 10, 100)` — standard Atlas
+guidance is 10-20x `limit` for good recall; at this corpus size (120 docs)
+that comfortably covers the whole collection regardless of `limit`.
+
+Benchmarked against the live Atlas cluster (30 requests, warm model, real
+HTTP + embed + Atlas roundtrip): **p50 ~60ms, p95 ~82ms, mean ~68ms** — well
+under the design doc's <500ms p50 target for the eventual full hybrid+rerank
+pipeline.
+
+Verified against real queries: "GST Expert" -> GST Consultants top 3
+(score ~0.86-0.89); "website design and development" -> Software
+Development/Digital Marketing firms; "restaurant food packaging" -> Food
+Packaging manufacturers.
 
 ## Notes
 
