@@ -1,0 +1,15 @@
+{
+  "name": "business_search_index",
+  "type": "search",
+  "definition": {
+    "mappings": {
+      "dynamic": false,
+      "fields": {
+        "business_description": { "type": "string" },
+        "products_services": { "type": "string" },
+        "keywords": { "type": "string" },
+        "specialties": { "type": "string" }
+      }
+    }
+  }
+}
