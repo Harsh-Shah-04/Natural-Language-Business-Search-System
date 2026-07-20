@@ -1,7 +1,9 @@
+import os
 import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.embeddings import get_embedder, get_model_health
 from app.filters import FilterValidationError, get_filter_allowlist
@@ -52,6 +54,26 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Business Search Backend", lifespan=lifespan)
+
+# The React frontend (M5.1) runs on its own origin — the Vite dev server on
+# :5173 in development, and a deploy URL in production — so the browser needs
+# CORS to reach this API cross-origin. Origins are an env-driven allow-list
+# (comma-separated) defaulting to the local Vite ports, so a deploy just sets
+# CORS_ALLOW_ORIGINS rather than editing code. We only expose what the frontend
+# uses: GET/POST and JSON, no credentials.
+_default_origins = "http://localhost:5173,http://127.0.0.1:5173"
+CORS_ALLOW_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOW_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 
 @app.get("/health")
