@@ -1,15 +1,19 @@
 """
 Hybrid semantic + keyword search with optional filters (M3.1 + M3.2),
-tuned per M4.1's evaluation findings (M4.1.1).
+tuned per M4.1's findings (M4.1.1), with optional cross-encoder reranking
+(M4.2).
 
 Runs Atlas $vectorSearch and Atlas $search concurrently, fuses the two
-candidate lists with Weighted Reciprocal Rank Fusion, and returns the top
-N. Same endpoint contract as M2's vector-only baseline — extension, not
-rewrite; search_businesses()'s signature is unchanged, and so is the
-/api/search route.
+candidate lists with Weighted Reciprocal Rank Fusion, optionally reranks
+the fused top-N with a cross-encoder, and returns the top N. Same endpoint
+contract as M2's vector-only baseline — extension, not rewrite; the
+/api/search route is unchanged and search_businesses()'s public behavior is
+unchanged (the reranking toggle is an optional keyword arg the HTTP layer
+never passes).
 
-Deliberately no cross-encoder reranking (gated on M4.1's eval showing it
-actually helps — see design-doc-v2.md).
+The hybrid retrieval + fusion pipeline itself (_vector_search,
+_keyword_search, _reciprocal_rank_fusion) is untouched by M4.2 — reranking
+is a strictly additive stage layered on top of the fused results.
 
 M4.1's golden-query evaluation (scripts/eval.py) found hybrid scoring
 *below* vector-only overall, traced by direct inspection to two causes,
@@ -32,6 +36,7 @@ score-thresholding has anything stronger to compare it against in that
 case. Full accounting in eval_reports/ and backend/README.md.
 """
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 
 from pymongo.errors import PyMongoError
@@ -39,6 +44,7 @@ from pymongo.errors import PyMongoError
 from app.db import get_db
 from app.embeddings import embed_texts
 from app.filters import FilterValidationError, validate_filters
+from app.reranker import rerank_candidates
 
 VECTOR_INDEX_NAME = "business_vector_index"
 SEARCH_INDEX_NAME = "business_search_index"
@@ -113,6 +119,23 @@ RRF_WEIGHT_KEYWORD = 0.3
 # matches, keeps legitimate partial multi-term matches); validated the
 # same way as the RRF weights above.
 KEYWORD_SCORE_THRESHOLD_RATIO = 0.3
+
+# M4.2: cross-encoder reranking. When enabled, fusion returns a wider pool
+# (RERANK_TOP_N) than the requested limit, the cross-encoder rescores that
+# pool by full (query, document) attention, and the caller then slices to
+# the limit — so a candidate hybrid ranked, say, #15 can climb into the
+# top-10 if it's genuinely more relevant. Reranking a pool larger than the
+# final limit is the whole point; reranking only the already-cut top-10
+# could reorder but never recover a better result hybrid ranked lower.
+#
+# RERANK_ENABLED is the default for search_businesses() (overridable per
+# call, and via the RERANK_ENABLED env var). Its default value is set on the
+# evidence of M4.2's 4-way eval, per design-doc-v2.md's rule to ship
+# reranking only if it measurably improves precision@5 — see the
+# "Cross-Encoder Reranking (M4.2)" section of backend/README.md for the
+# actual before/after numbers this default is based on.
+RERANK_TOP_N = 20
+RERANK_ENABLED = os.environ.get("RERANK_ENABLED", "true").lower() in ("1", "true", "yes")
 
 # Fields returned to the client. Excludes `embedding` (384 floats, no
 # reason to ship it) and `_id` is remapped to `id` after fusion.
@@ -253,8 +276,19 @@ def _reciprocal_rank_fusion(
 
 
 def search_businesses(
-    query: str, limit: int, filters: dict[str, str | None] | None = None
+    query: str,
+    limit: int,
+    filters: dict[str, str | None] | None = None,
+    rerank: bool | None = None,
 ) -> list[dict]:
+    """`rerank` defaults to the module-level RERANK_ENABLED flag when None.
+    Overridable per call so scripts/eval.py can compare hybrid vs
+    hybrid+rerank directly; the HTTP layer never passes it, so /api/search's
+    behavior is exactly RERANK_ENABLED and its request/response contract is
+    unchanged."""
+    if rerank is None:
+        rerank = RERANK_ENABLED
+
     try:
         query_vector = embed_texts([query])[0]
     except Exception as e:
@@ -276,6 +310,10 @@ def search_businesses(
         else max(POOL_SIZE_DEFAULT, limit * POOL_SIZE_MULTIPLIER)
     )
 
+    # When reranking, fuse a wider pool than the final limit so the
+    # cross-encoder has candidates below the top-`limit` to promote from.
+    fusion_limit = max(limit, RERANK_TOP_N) if rerank else limit
+
     try:
         businesses = get_db()["businesses"]
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -293,4 +331,19 @@ def search_businesses(
         # condition too, not just PyMongoError from the query itself.
         raise SearchUnavailableError(f"search backend unavailable: {e}") from e
 
-    return _reciprocal_rank_fusion(vector_results, keyword_results, limit)
+    fused = _reciprocal_rank_fusion(vector_results, keyword_results, fusion_limit)
+
+    if rerank:
+        try:
+            fused = rerank_candidates(query, fused, RERANK_TOP_N)
+        except Exception:
+            # Reranking is a quality layer, not a hard dependency: we already
+            # hold good fused hybrid results. If the cross-encoder fails to
+            # load or infer, degrade gracefully to the un-reranked results
+            # rather than 503 the whole search (design-doc-v2.md: reranker
+            # failure means "search degrades, not a crash"). Persistent
+            # failures stay visible via /health/reranker, so this isn't
+            # silent at the operational level.
+            pass
+
+    return fused[:limit]
