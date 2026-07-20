@@ -1,8 +1,9 @@
-# Backend — M1.1 + M1.2 (Atlas spike + raw ingestion)
+# Backend — M1.1 + M1.2 + M1.3 (Atlas spike + ingestion + embeddings)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
-data or ML code depends on it. **M1.2** adds raw ingestion of the actual
-120-business dataset — no embedding model yet, that's M1.3.
+data or ML code depends on it. **M1.2** added raw ingestion of the actual
+120-business dataset. **M1.3** backfills real embeddings onto that data and
+adds background model warm-up + a dedicated model health check.
 
 ## Setup
 
@@ -41,19 +42,27 @@ data or ML code depends on it. **M1.2** adds raw ingestion of the actual
    it up by this string) pasting `vector_index.json`, and Index 2 (Type = Search, Name
    = `business_search_index`) pasting `search_index.json`.
 
-## Seed the dataset (M1.2)
+## Seed the dataset + embeddings (M1.2 + M1.3)
 
 Parses `Business_Matchmaking_Test_Dataset_V2_120_Companies.xlsx` (expected at
-the repo root, one level above `backend/`) and inserts all 14 fields per
-business into the `businesses` collection — no embeddings yet. Safe to
-re-run: clears and reinserts the collection each time, so it always
-converges on exactly 120 documents.
+the repo root, one level above `backend/`), computes a `BAAI/bge-small-en-v1.5`
+embedding per business, and inserts all 14 raw fields plus the 384-dim
+`embedding` field into the `businesses` collection. Safe to re-run: clears
+and reinserts the collection each time, so it always converges on exactly
+120 fully-embedded documents.
 
 ```
 uv run python scripts/seed.py
 ```
 
-Expected output: `PASS: seeded 120 businesses from Business_Matchmaking_Test_Dataset_V2_120_Companies.xlsx`
+Expected output ends with:
+```
+Embedded 120 businesses in ~Ns (~X docs/sec, model load included)
+PASS: seeded 120 businesses from Business_Matchmaking_Test_Dataset_V2_120_Companies.xlsx
+```
+
+First run downloads the model (~130MB) from Hugging Face, so it's slower than
+subsequent runs, which reuse the local HF cache.
 
 To seed from a different file path: `uv run python scripts/seed.py path/to/dataset.xlsx`
 
@@ -64,6 +73,14 @@ Start the API:
 uv run uvicorn app.main:app --reload
 ```
 Check it's up: `curl http://127.0.0.1:8000/health` -> `{"status":"ok"}`
+
+The embedding model loads in a background thread on startup, so `/health`
+is up instantly regardless of model load state. Poll model readiness:
+```
+curl http://127.0.0.1:8000/health/model
+```
+Cycles `{"status":"not_started"}` -> `{"status":"loading"}` -> `{"status":"ready"}`
+(or `{"status":"error","detail":"..."}` if the model fails to load).
 
 Verify the Atlas spike (both indexes actually work end-to-end):
 ```
@@ -78,6 +95,32 @@ The dataset's 14 xlsx columns map to snake_case document fields: `business_name`
 `website`, `phone`, `business_description`, `products_services`, `keywords`,
 `specialties`. Established in M1.1 (the search index needs concrete field names)
 and applied to all 14 fields by M1.2's ingestion script.
+
+## Embedding pipeline (M1.3)
+
+- Model: `BAAI/bge-small-en-v1.5` via `sentence-transformers`, loaded lazily
+  as a singleton in `app/embeddings.py` (same double-checked-locking pattern
+  as `app/db.py`'s MongoClient). Free, local, no GPU required.
+- `embedding_text` = `business_description + products_services + keywords +
+  specialties + sub_category`, space-joined. Contact fields (email, phone,
+  website, contact_person) are excluded — no semantic signal.
+- Vectors are L2-normalized (`normalize_embeddings=True`) — standard BGE
+  convention, keeps concatenated-text length from leaking into vector
+  magnitude, and stays compatible with `dotProduct` similarity if that's
+  ever revisited (today's index uses `cosine`, which is scale-invariant
+  regardless).
+- Dimension is asserted at model-load time against `EMBEDDING_DIMENSIONS`
+  (384) — a model swap that changes output size fails fast instead of
+  silently producing vectors Atlas's index will reject.
+- Benchmarked on this machine (CPU, warm HF cache): model load ~6.4s,
+  encoding 120 business docs ~3.8s (~31 docs/sec), single-query encode
+  ~37ms — well under the design doc's <500ms p50 end-to-end search target.
+- Live vector search sanity check: querying `$vectorSearch` with a real
+  encoded query for "GST Expert" surfaces GST Consultants as the top
+  matches (score ~0.86-0.89); "restaurant food packaging" surfaces Food
+  Packaging manufacturers — confirms the assignment's own example queries
+  work end-to-end with real embeddings, not just the synthetic spike vector
+  from M1.1.
 
 ## Notes
 
