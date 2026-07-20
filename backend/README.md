@@ -1,4 +1,4 @@
-# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 (Atlas, ingestion, embeddings, filtered hybrid search)
+# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 + M4.1 (Atlas, ingestion, embeddings, filtered hybrid search, evaluation)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
@@ -9,8 +9,10 @@ upgraded it to hybrid: Atlas `$vectorSearch` + `$search` fused with
 Reciprocal Rank Fusion — same route, same request shape. **M3.2** adds
 optional `filters` (industry/city/state/nature/sub_category), validated
 against a live, cached DB allow-list — closes the NoSQL-injection-shaped gap
-the architecture review flagged. Cross-encoder reranking is still deferred
-(M4.2, gated on M4.1's eval showing it helps); business registration and the
+the architecture review flagged. **M4.1** adds a golden-query evaluation
+framework (Precision@K, Recall@K, MRR) comparing vector-only vs hybrid —
+the evidence M4.2's reranking decision will be gated on. Cross-encoder
+reranking itself is still deferred (M4.2); business registration and the
 frontend are separate milestones (M3.3/M3.4), not implemented here.
 
 ## Setup
@@ -222,6 +224,68 @@ Verified against the live cluster:
 - "HNSW indexing vector database" (out-of-domain jargon) -> keyword search
   returns zero hits, hybrid gracefully falls back to semantic-only results
   instead of erroring.
+
+## Evaluation Framework (M4.1)
+
+Golden-query evaluation harness comparing search systems on real,
+verified relevance judgments — the evidence M4.2's reranking decision
+(and any future ranking change) should be gated on, not an assertion.
+
+**Run it:**
+```
+uv run python scripts/eval.py
+```
+Requires a seeded, embedded DB (M1.2/M1.3) and both Atlas indexes queryable
+(M1.1) — same prerequisites as the app itself. Prints a full report to the
+console and writes a timestamped copy to `eval_reports/report_<UTC
+timestamp>.md`. Takes a few seconds (mostly model load, cached after the
+first request).
+
+**The golden dataset** (`scripts/eval_dataset.py`): 30 hand-labeled queries
+across the 6 categories required for M4.1 — `semantic`, `keyword`,
+`synonym`, `multi_intent`, `filtered`, `edge_case` (5 each). Every expected
+relevant business was verified against the live dataset before being
+written down, not guessed: the 120-business corpus is exactly 3 businesses
+per sub-category (40 x 3), so "all 3 businesses in sub-category X" is a
+clean, defensible ground truth for any query targeting that category.
+Multi-intent queries expect the union of two categories; filtered queries
+expect the intersection of a category and a real city/industry value
+pulled from the live DB; two edge cases expect zero relevant results
+(verified empty, not assumed) to exercise the framework's handling of
+that case.
+
+**Metrics** (`scripts/eval.py`): Precision@5, Precision@10, Recall@5,
+Recall@10, MRR@10. Recall and MRR are `None` (not `0.0`) for the two
+zero-relevant edge cases — mathematically undefined (0/0), not a failure
+— and excluded from every average rather than silently counted as zero.
+
+**Systems compared:** `vector-only` (M2's baseline) vs `hybrid` (M3.1/M3.2's
+current default), both applying filters identically for a fair comparison
+on filtered queries. Both reuse `app.search`'s actual retrieval internals
+directly (`_vector_search`, `_keyword_search`, `search_businesses`) — no
+duplicated retrieval logic between the live API and the eval harness.
+
+**Extensible for M4.2:** a "system" is just
+`Callable[[str, int, dict | None], list[dict]]` returning ranked results
+with a `business_name` key (see `SYSTEMS` in `scripts/eval.py`). Adding a
+cross-encoder-reranked variant later means writing one more function with
+that signature and adding one line to `SYSTEMS` — nothing else in the file
+needs to change.
+
+**Actual finding from this run:** hybrid scores *lower* than vector-only
+overall (P@5 0.467 vs 0.560), most sharply on `synonym` queries (P@5 0.280
+vs 0.520). Verified by direct inspection, not assumed: for `syn-01`
+("computer hacking defense and security auditing firm", targeting
+Cybersecurity), Atlas `$search` matches unrelated "AI Solutions" businesses
+on the single literal token "computer" (present in their keywords as
+"computer vision") — a coincidental overlap that RRF can't distinguish
+from a genuine keyword match, so it wrongly outranks the correct
+Cybersecurity results. Vector-only has no keyword signal to be diluted by
+this. Full analysis in the generated report (`eval_reports/report_*.md`,
+"Analysis" section) — this is exactly the class of gap a cross-encoder
+reranker (M4.2) could close, and exactly why design-doc-v2.md gates
+reranking on evidence from this eval set rather than shipping it by
+assertion.
 
 ## Notes
 
