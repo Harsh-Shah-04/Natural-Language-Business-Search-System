@@ -620,6 +620,17 @@ with little headroom; `RERANK_ENABLED=false` gives back the fast path instantly.
 The ~800ms p95 appears on both rows and is cold-cache / Atlas round-trip noise,
 not reranking.
 
+> **These absolute numbers are point-in-time, single-machine, and not
+> reproducible on demand.** Re-measuring the identical code in a later session
+> (same commit, verified byte-identical) gave ~178ms p50 without reranking and
+> ~2135ms with it — roughly 3-5x higher across *both* paths, including the path
+> that never touches the cross-encoder. The cause is machine state (CPU
+> contention, thermal, Atlas network), not a regression. Treat the **relative**
+> finding as the durable one: reranking dominates search latency and costs
+> several times the retrieval-and-fusion path. If you benchmark this yourself,
+> expect your own absolute figures and compare rerank-on against rerank-off on
+> the *same* machine in the *same* session.
+
 **Filtering** is effectively free at this corpus size: unfiltered p50 ~72ms,
 filtered-by-city ~68ms, filtered-by-two-fields ~67ms.
 
@@ -697,6 +708,9 @@ Not yet deployed; this is the intended path.
 | Document | Contents |
 |---|---|
 | `README.md` | This overview. |
+| [`docs/PROJECT_SUMMARY.md`](docs/PROJECT_SUMMARY.md) | Condensed summary: features, stack, results, limitations. Start here for a quick read. |
+| [`docs/SUBMISSION.md`](docs/SUBMISSION.md) | Submission checklist and the final end-to-end QA results. |
+| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | 3-5 minute demo walkthrough. |
 | [`backend/README.md`](backend/README.md) | Deep backend documentation: embedding pipeline, index definitions, tuning rationale, benchmarks. |
 | [`frontend/README.md`](frontend/README.md) | Frontend structure and scripts. |
 | [`design-doc-v2.md`](design-doc-v2.md) | Architecture decisions and the evidence rules ranking changes were gated on. |

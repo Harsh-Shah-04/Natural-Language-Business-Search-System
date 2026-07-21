@@ -408,6 +408,14 @@ design-doc-v2.md set for shipping it — hence `RERANK_ENABLED` defaults on.
 | Hybrid (rerank off) | ~58ms | ~800ms |
 | Hybrid + rerank | ~463ms | ~830ms |
 
+> **Caveat (M5.5 re-measurement):** these are point-in-time figures from one
+> machine state. Re-running the identical code later gave ~178ms p50 with
+> rerank off and ~2135ms with it on — ~3-5x higher on *both* rows, including
+> the row that never invokes the cross-encoder, so it is machine state (CPU
+> contention / thermal / Atlas RTT), not a regression. The durable finding is
+> the *relative* cost: reranking dominates. Benchmark on your own machine and
+> compare rerank-on vs rerank-off within a single session.
+
 Reranking adds **~+405ms p50** — the cost of running the cross-encoder over
 ~20 `(query, document)` pairs per query on CPU. That lands just under the
 design doc's <500ms p50 target, but with little headroom; on a latency-
