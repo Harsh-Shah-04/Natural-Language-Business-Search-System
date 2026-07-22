@@ -12,6 +12,7 @@ including the ones that didn't work.
 
 ## Table of contents
 
+- [**Codebase map**](CODEBASE_MAP.md) — file-by-file map of features (start here for review)
 - [Problem statement](#problem-statement)
 - [Features](#features)
 - [Tech stack](#tech-stack)
