@@ -72,7 +72,7 @@ export function ResultCard({ result, query }: ResultCardProps) {
 
       <footer className="result-card__footer">
         <span className="result-card__score">
-          Relevance <strong>{result.score.toFixed(3)}</strong>
+          Score <strong>{result.score.toFixed(3)}</strong>
         </span>
       </footer>
     </article>
