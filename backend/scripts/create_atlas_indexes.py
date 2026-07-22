@@ -1,9 +1,9 @@
 """
-Create the two Atlas Search indexes for M1.1 programmatically, via the
-pymongo driver, instead of manually pasting JSON into the Atlas UI.
-Reproducible and avoids manual-entry mistakes (e.g. a mistyped index name
-or username, which is exactly what happened during this milestone's
-initial setup). Safe to re-run — skips indexes that already exist.
+Create or update Atlas Search indexes from scripts/atlas_indexes/*.json.
+
+Safe to re-run. Creates missing indexes; for an existing search index whose
+definition drifted (e.g. a newly mapped field), calls update_search_index so
+$search can see the new field without a manual Atlas UI edit.
 
 Requires MONGODB_URI in .env.
 
@@ -26,7 +26,28 @@ INDEX_SPECS = [
     ("business_search_index", "search", INDEXES_DIR / "search_index.json"),
 ]
 POLL_INTERVAL_SECONDS = 5
-POLL_TIMEOUT_SECONDS = 120
+POLL_TIMEOUT_SECONDS = 180
+
+
+def _wait_queryable(businesses, names: set[str]) -> int:
+    if not names:
+        return 0
+    print(
+        f"Waiting for {len(names)} index(es) to become queryable "
+        f"(up to {POLL_TIMEOUT_SECONDS}s)..."
+    )
+    deadline = time.time() + POLL_TIMEOUT_SECONDS
+    pending = set(names)
+    while pending and time.time() < deadline:
+        time.sleep(POLL_INTERVAL_SECONDS)
+        for idx in businesses.list_search_indexes():
+            if idx["name"] in pending and idx.get("queryable"):
+                print(f"READY: {idx['name']}")
+                pending.discard(idx["name"])
+    if pending:
+        print(f"FAIL: still not queryable after {POLL_TIMEOUT_SECONDS}s: {pending}")
+        return 1
+    return 0
 
 
 def main() -> int:
@@ -34,39 +55,44 @@ def main() -> int:
     db = get_db()
     businesses = db["businesses"]
 
-    existing = {idx["name"] for idx in businesses.list_search_indexes()}
+    existing = {idx["name"]: idx for idx in businesses.list_search_indexes()}
 
-    created = []
+    created_or_updated: set[str] = set()
     for name, index_type, definition_path in INDEX_SPECS:
-        if name in existing:
-            print(f"SKIP: {name} already exists")
-            continue
         definition = json.loads(definition_path.read_text())
-        model = SearchIndexModel(definition=definition, name=name, type=index_type)
-        businesses.create_search_index(model)
-        print(f"CREATED (building): {name}")
-        created.append(name)
+        if name not in existing:
+            model = SearchIndexModel(
+                definition=definition, name=name, type=index_type
+            )
+            businesses.create_search_index(model)
+            print(f"CREATED (building): {name}")
+            created_or_updated.add(name)
+            continue
 
-    if not created:
-        print("All indexes already exist — nothing to wait for.")
+        # Vector indexes are rarely redefined here; only refresh the Lucene
+        # search index when the on-disk definition adds/removes mapped fields
+        # (minimal change for name-lookup: business_name).
+        if index_type == "search":
+            current = existing[name].get("latestDefinition") or existing[name].get(
+                "definition"
+            )
+            if current != definition:
+                businesses.update_search_index(name, definition)
+                print(f"UPDATED (rebuilding): {name}")
+                created_or_updated.add(name)
+            else:
+                print(f"SKIP: {name} already matches definition")
+        else:
+            print(f"SKIP: {name} already exists")
+
+    if not created_or_updated:
+        print("All indexes already exist and match — nothing to wait for.")
         return 0
 
-    print(f"Waiting for {len(created)} index(es) to become queryable (up to {POLL_TIMEOUT_SECONDS}s)...")
-    deadline = time.time() + POLL_TIMEOUT_SECONDS
-    pending = set(created)
-    while pending and time.time() < deadline:
-        time.sleep(POLL_INTERVAL_SECONDS)
-        for idx in businesses.list_search_indexes():
-            if idx["name"] in pending and idx.get("queryable"):
-                print(f"READY: {idx['name']}")
-                pending.discard(idx["name"])
-
-    if pending:
-        print(f"FAIL: still not queryable after {POLL_TIMEOUT_SECONDS}s: {pending}")
-        return 1
-
-    print("PASS: all indexes created and queryable")
-    return 0
+    rc = _wait_queryable(businesses, created_or_updated)
+    if rc == 0:
+        print("PASS: all indexes created/updated and queryable")
+    return rc
 
 
 if __name__ == "__main__":

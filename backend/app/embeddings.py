@@ -75,10 +75,16 @@ def get_embedder() -> SentenceTransformer:
 def build_embedding_text(doc: dict) -> str:
     """Concatenate the fields carrying semantic signal, per design-doc-v2.md.
 
+    `business_name` is included so exact/near name queries can match via
+    vector search for registered businesses whose description does not
+    repeat the name (seeded rows already get the name via description
+    boilerplate; including it here is redundant for them but harmless).
+
     Contact fields (email/phone/website/contact_person) are excluded — they
     carry no semantic signal for search.
     """
     parts = [
+        doc.get("business_name") or "",
         doc.get("business_description") or "",
         doc.get("products_services") or "",
         doc.get("keywords") or "",

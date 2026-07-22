@@ -10,11 +10,13 @@ interface FormFieldProps {
   type?: 'text' | 'email' | 'tel' | 'url';
   placeholder?: string;
   disabled?: boolean;
+  /** When set, renders a <select> instead of a text input. */
+  options?: readonly string[];
 }
 
-/** A labelled text input or textarea with inline validation error. Reused for
- *  every registration field so labels, required markers, and error display
- *  stay consistent. */
+/** A labelled text input, textarea, or select with inline validation error.
+ *  Reused for every registration field so labels, required markers, and error
+ *  display stay consistent. */
 export function FormField({
   id,
   label,
@@ -27,20 +29,18 @@ export function FormField({
   type = 'text',
   placeholder,
   disabled,
+  options,
 }: FormFieldProps) {
   const errorId = error ? `${id}-error` : undefined;
+  const className = `form-field__input${error ? ' form-field__input--error' : ''}`;
   const shared = {
     id,
     value,
     onBlur,
     disabled,
-    placeholder,
     'aria-invalid': error ? true : undefined,
     'aria-describedby': errorId,
-    className: `form-field__input${error ? ' form-field__input--error' : ''}`,
-    onChange: (
-      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => onChange(e.target.value),
+    className,
   };
 
   return (
@@ -49,10 +49,32 @@ export function FormField({
         {label}
         {required && <span className="form-field__required" aria-hidden="true"> *</span>}
       </label>
-      {multiline ? (
-        <textarea {...shared} rows={3} />
+      {options ? (
+        <select
+          {...shared}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">{placeholder ?? 'Select…'}</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      ) : multiline ? (
+        <textarea
+          {...shared}
+          placeholder={placeholder}
+          rows={3}
+          onChange={(e) => onChange(e.target.value)}
+        />
       ) : (
-        <input {...shared} type={type} />
+        <input
+          {...shared}
+          type={type}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
       )}
       {error && (
         <p className="form-field__error" id={errorId} role="alert">
