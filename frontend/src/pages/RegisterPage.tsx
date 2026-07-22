@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { FormField } from '../components/FormField';
 import {
   FIELD_GROUPS,
@@ -8,9 +10,14 @@ import {
 interface RegisterPageProps {
   /** Called when the user chooses to search the business they just registered. */
   onSearchBusiness: (businessName: string) => void;
+  /** Fired once a registration succeeds so Search can refresh filter options. */
+  onRegistered?: () => void;
 }
 
-export function RegisterPage({ onSearchBusiness }: RegisterPageProps) {
+export function RegisterPage({
+  onSearchBusiness,
+  onRegistered,
+}: RegisterPageProps) {
   const {
     values,
     errors,
@@ -22,6 +29,14 @@ export function RegisterPage({ onSearchBusiness }: RegisterPageProps) {
     submit,
     reset,
   } = useRegistrationForm();
+
+  // Notify the shell as soon as registration succeeds (before the user
+  // clicks "Search this business") so filter dropdowns include new values.
+  useEffect(() => {
+    if (status === 'success' && registered) {
+      onRegistered?.();
+    }
+  }, [status, registered, onRegistered]);
 
   if (status === 'success' && registered) {
     return (

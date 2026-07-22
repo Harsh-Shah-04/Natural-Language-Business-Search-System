@@ -13,12 +13,15 @@ interface SearchPageProps {
    *  business is registered). The nonce makes repeated identical queries
    *  re-trigger. */
   trigger?: { query: string; nonce: number } | null;
+  /** Bumped by the shell after a successful registration so City / Industry /
+   *  etc. dropdowns pick up newly introduced values without a page refresh. */
+  filtersRefreshNonce?: number;
 }
 
-export function SearchPage({ trigger }: SearchPageProps) {
+export function SearchPage({ trigger, filtersRefreshNonce = 0 }: SearchPageProps) {
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
-  const { options } = useFilterOptions();
+  const { options, reload: reloadFilterOptions } = useFilterOptions();
   const { status, results, submittedQuery, error, search } = useSearch();
 
   const isLoading = status === 'loading';
@@ -33,6 +36,14 @@ export function SearchPage({ trigger }: SearchPageProps) {
       search(trigger.query, {});
     }
   }, [trigger, search]);
+
+  // Refetch filter allow-list after registration. Nonce 0 is the idle value;
+  // only positive bumps (from App) trigger a reload beyond the mount fetch.
+  useEffect(() => {
+    if (filtersRefreshNonce > 0) {
+      void reloadFilterOptions();
+    }
+  }, [filtersRefreshNonce, reloadFilterOptions]);
 
   const handleFilterChange = (field: FilterField, value: string) => {
     const next: SearchFilters = { ...filters, [field]: value || undefined };

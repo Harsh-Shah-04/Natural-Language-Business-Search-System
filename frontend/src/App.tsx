@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { RegisterPage } from './pages/RegisterPage';
 import { SearchPage } from './pages/SearchPage';
@@ -13,6 +13,13 @@ export default function App() {
     query: string;
     nonce: number;
   } | null>(null);
+  // Bumped on each successful registration so SearchPage reloads filter
+  // dropdown options (new city / industry / etc.) while it stays mounted.
+  const [filtersRefreshNonce, setFiltersRefreshNonce] = useState(0);
+
+  const handleRegistered = useCallback(() => {
+    setFiltersRefreshNonce((n) => n + 1);
+  }, []);
 
   const handleSearchBusiness = (businessName: string) => {
     setSearchTrigger({ query: businessName, nonce: Date.now() });
@@ -54,10 +61,16 @@ export default function App() {
           switch back to Search). */}
       <main>
         <div hidden={view !== 'search'}>
-          <SearchPage trigger={searchTrigger} />
+          <SearchPage
+            trigger={searchTrigger}
+            filtersRefreshNonce={filtersRefreshNonce}
+          />
         </div>
         <div hidden={view !== 'register'}>
-          <RegisterPage onSearchBusiness={handleSearchBusiness} />
+          <RegisterPage
+            onSearchBusiness={handleSearchBusiness}
+            onRegistered={handleRegistered}
+          />
         </div>
       </main>
     </div>
