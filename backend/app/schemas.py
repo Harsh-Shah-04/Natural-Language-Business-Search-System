@@ -103,6 +103,15 @@ class BusinessRegistration(BaseModel):
             raise ValueError("must not be blank")
         return stripped
 
+    # Reject angle brackets in names so HTML-like strings cannot be stored
+    # (demo hygiene / input safety). Other fields are unchanged.
+    @field_validator("business_name")
+    @classmethod
+    def _business_name_no_angle_brackets(cls, v: str) -> str:
+        if "<" in v or ">" in v:
+            raise ValueError("must not contain < or > characters")
+        return v
+
     # Dataset + product convention: nature is Goods or Services only. Free-text
     # here polluted the filter allow-list (e.g. spa service lists typed into
     # Nature). Keep this validator after blank-stripping so the compared value
