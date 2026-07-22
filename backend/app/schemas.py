@@ -103,6 +103,17 @@ class BusinessRegistration(BaseModel):
             raise ValueError("must not be blank")
         return stripped
 
+    # Dataset + product convention: nature is Goods or Services only. Free-text
+    # here polluted the filter allow-list (e.g. spa service lists typed into
+    # Nature). Keep this validator after blank-stripping so the compared value
+    # is already normalized.
+    @field_validator("nature")
+    @classmethod
+    def _nature_goods_or_services(cls, v: str) -> str:
+        if v not in ("Goods", "Services"):
+            raise ValueError("must be 'Goods' or 'Services'")
+        return v
+
     @field_validator("keywords", "address", "phone", "email", "website")
     @classmethod
     def _optional_blank_to_none(cls, v: str | None) -> str | None:

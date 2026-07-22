@@ -21,6 +21,8 @@ export interface FieldConfig {
   multiline?: boolean;
   type?: 'text' | 'email' | 'tel' | 'url';
   placeholder?: string;
+  /** Constrained choices — renders as a select in FormField. */
+  options?: readonly string[];
 }
 
 /** Section headings for the grouped registration form, in display order. */
@@ -33,7 +35,7 @@ export const FIELD_GROUPS: { id: FieldGroup; title: string }[] = [
 export const REGISTRATION_FIELDS: FieldConfig[] = [
   { name: 'business_name', label: 'Business Name', group: 'business', required: true },
   { name: 'industry', label: 'Industry', group: 'business', required: true },
-  { name: 'nature', label: 'Nature of Business', group: 'business', required: true, placeholder: 'e.g. Goods or Services' },
+  { name: 'nature', label: 'Nature of Business', group: 'business', required: true, placeholder: 'Select Goods or Services', options: ['Goods', 'Services'] as const },
   { name: 'sub_category', label: 'Sub Category', group: 'business', required: true },
   { name: 'business_description', label: 'Business Description', group: 'business', required: true, multiline: true },
   { name: 'products_services', label: 'Products / Services', group: 'business', required: true, multiline: true },
@@ -81,6 +83,9 @@ function validateField(name: RegistrationField, value: string): string | undefin
   }
   if (name === 'website' && !WEBSITE_RE.test(trimmed)) {
     return 'Enter a valid website URL';
+  }
+  if (name === 'nature' && trimmed !== '' && trimmed !== 'Goods' && trimmed !== 'Services') {
+    return 'Nature must be Goods or Services';
   }
   return undefined;
 }

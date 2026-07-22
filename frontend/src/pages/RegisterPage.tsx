@@ -97,6 +97,7 @@ export function RegisterPage({ onSearchBusiness }: RegisterPageProps) {
                     multiline={field.multiline}
                     type={field.type}
                     placeholder={field.placeholder}
+                    options={field.options}
                     disabled={submitting}
                   />
                 </div>

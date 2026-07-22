@@ -65,7 +65,11 @@ SEARCH_INDEX_NAME = "business_search_index"
 # genuinely discriminative fields isn't addressed by any of M4.1.1's three
 # changes (see eval_reports/ and backend/README.md for the honest
 # after-the-fact accounting, including what's still open).
-SEARCH_TEXT_PATHS = ["keywords", "specialties", "products_services"]
+# business_name is required for exact/near name lookup (e.g. registered
+# businesses whose description does not repeat the name). Kept alongside the
+# M4.1.1-narrowed discriminative fields; business_description stays out to
+# avoid the templated "enterprises"/"business" collisions that M4.1.1 fixed.
+SEARCH_TEXT_PATHS = ["business_name", "keywords", "specialties", "products_services"]
 
 # design-doc-v2.md: "top ~30" from each retrieval at the default limit=10.
 # Generalized so a larger requested `limit` (up to 50) doesn't starve
