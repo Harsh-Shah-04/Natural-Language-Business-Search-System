@@ -23,7 +23,9 @@ export function highlightText(text: string, query: string): ReactNode {
   if (terms.length === 0) return text;
 
   const lowered = new Set(terms.map((term) => term.toLowerCase()));
-  const pattern = new RegExp(`(${terms.map(escapeRegExp).join('|')})`, 'gi');
+  // Word boundaries so "Enterprise" does not paint the prefix of "Enterprises"
+  // (leaving a stray highlighted "Enterprise" + bare "s").
+  const pattern = new RegExp(`\\b(${terms.map(escapeRegExp).join('|')})\\b`, 'gi');
 
   // String.split with a capturing group keeps the matched delimiters as
   // separate array entries, so the pieces that equal a term (case-insensitively)
