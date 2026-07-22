@@ -78,6 +78,9 @@ function validateField(name: RegistrationField, value: string): string | undefin
   }
   if (trimmed === '') return undefined; // optional + empty is fine
 
+  if (name === 'business_name' && (trimmed.includes('<') || trimmed.includes('>'))) {
+    return 'Business name must not contain < or > characters';
+  }
   if (name === 'email' && !EMAIL_RE.test(trimmed)) {
     return 'Enter a valid email address';
   }
