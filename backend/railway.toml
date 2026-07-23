@@ -1,0 +1,11 @@
+# Railway: set the service Root Directory to `backend/` so this file and
+# Dockerfile are found at the project root of the build.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

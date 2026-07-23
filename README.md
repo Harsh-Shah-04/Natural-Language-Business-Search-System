@@ -646,38 +646,110 @@ constraint for small free-tier hosts.
 
 ## Deployment guide
 
-Not yet deployed; this is the intended path.
+Target hosts: **Railway** (FastAPI backend) + **Vercel** (Vite/React frontend).
+MongoDB Atlas stays where it is. Config files in the repo:
 
-**Backend (Render / Railway / Fly.io)**
+| File | Role |
+|------|------|
+| [`backend/Dockerfile`](backend/Dockerfile) | Production image (uv + uvicorn) |
+| [`backend/railway.toml`](backend/railway.toml) | Railway build/deploy + `/health` check |
+| [`frontend/vercel.json`](frontend/vercel.json) | SPA fallback rewrites |
 
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Set `MONGODB_URI`, `DB_NAME`, and `CORS_ALLOW_ORIGINS` (the deployed frontend
-  origin) as environment variables.
-- Allow the host's outbound IPs in the Atlas Network Access list.
-- Run `scripts/create_atlas_indexes.py` and `scripts/seed.py` once against the
-  target cluster before first use.
+Default for Railway: set **`RERANK_ENABLED=false`** so only the embedder loads
+(hobby RAM). Turn reranking back on only on a larger instance.
 
-**Frontend (Vercel / Netlify)**
+### 1. Atlas (once)
 
-- Build command `npm run build`, output directory `dist`, root `frontend/`.
-- Set `VITE_API_BASE_URL` to the deployed backend URL. Vite inlines env vars at
-  **build** time, so changing it requires a rebuild, not just a restart.
+1. **Network Access** → allow `0.0.0.0/0` (Railway egress IPs change), or
+   Atlas’s cloud-host guidance.
+2. Confirm the cluster already has indexes + seed data (same as local). If not,
+   run locally against Atlas:
+   - `uv run python scripts/create_atlas_indexes.py`
+   - `uv run python scripts/seed.py`
 
-**Production considerations**
+### 2. Backend on Railway
 
-- **Memory is the binding constraint.** Both models resident is tight on a 512MB
-  free tier. Either size up or set `RERANK_ENABLED=false` — the toggle exists
-  precisely for this trade.
-- **Cold starts.** Models load in background threads at startup, but a
-  scale-to-zero host pays that load on the first request after a spin-up. Prefer
-  an always-on instance, and use `/health/model` and `/health/reranker` as
-  readiness signals.
-- **CORS.** `CORS_ALLOW_ORIGINS` is an explicit allow-list — set it to the real
-  frontend origin, not `*`.
-- **Secrets.** `MONGODB_URI` belongs in the host's secret store. `backend/.env`
-  is gitignored and must stay that way.
-- **No auth.** Every endpoint is public, including `POST /api/businesses`. A
-  public deployment needs auth and rate limiting before it accepts real writes.
+1. [Railway](https://railway.app) → New Project → Deploy from GitHub → this repo.
+2. Service settings:
+   - **Root Directory:** `backend`
+   - Builder uses [`backend/Dockerfile`](backend/Dockerfile) via
+     [`backend/railway.toml`](backend/railway.toml).
+3. **Variables** (Settings → Variables):
+
+   | Variable | Example |
+   |----------|---------|
+   | `MONGODB_URI` | Atlas `mongodb+srv://…` (secret) |
+   | `DB_NAME` | `business_search` |
+   | `CORS_ALLOW_ORIGINS` | `https://your-app.vercel.app` (set after Vercel exists; comma-separate previews if needed) |
+   | `RERANK_ENABLED` | `false` |
+
+   `PORT` is injected by Railway — do not hard-code it.
+4. Deploy. First build pulls torch/sentence-transformers (several minutes).
+5. Open the public URL. Wait until models are ready:
+   - `GET /health` → `{"status":"ok"}`
+   - `GET /health/model` → `"ready"` (first boot downloads HuggingFace weights;
+     can take several minutes)
+
+### 3. Frontend on Vercel
+
+1. [Vercel](https://vercel.com) → Add New Project → import the same GitHub repo.
+2. Project settings:
+   - **Root Directory:** `frontend`
+   - **Framework Preset:** Vite (auto)
+   - **Build Command:** `npm run build` (default)
+   - **Output Directory:** `dist` (default)
+3. **Environment Variable** (Production + Preview as needed):
+
+   | Variable | Example |
+   |----------|---------|
+   | `VITE_API_BASE_URL` | `https://your-service.up.railway.app` (no trailing slash) |
+
+   Vite **inlines** this at build time — changing it requires a **redeploy**, not
+   only a restart.
+4. Deploy. Note the `*.vercel.app` URL.
+5. Go back to Railway and set `CORS_ALLOW_ORIGINS` to that exact origin
+   (`https://…vercel.app`). Redeploy/restart the Railway service if it was
+   already running with the old value.
+
+### 4. Wire order (if deploying cold)
+
+1. Railway first (get API URL).
+2. Vercel with `VITE_API_BASE_URL` pointing at Railway.
+3. Patch Railway `CORS_ALLOW_ORIGINS` to the Vercel origin.
+4. Smoke-test (below).
+
+### Production considerations
+
+- **Memory is the binding constraint.** Both models resident is tight on small
+  plans. Prefer `RERANK_ENABLED=false` on Railway hobby; size up to enable
+  rerank.
+- **Cold starts.** Models warm in background threads, but a scale-to-zero host
+  pays load cost after sleep. Prefer always-on for demos. Use `/health/model`
+  (and `/health/reranker` if enabled) as readiness signals.
+- **CORS.** Explicit allow-list only — not `*`.
+- **Secrets.** Keep `MONGODB_URI` in Railway variables; never commit
+  `backend/.env`.
+- **No auth.** `POST /api/businesses` is public. Fine for an internship demo;
+  add auth/rate limits before real public writes.
+
+### Post-deploy smoke checklist
+
+Run these after CORS and `VITE_API_BASE_URL` are set:
+
+1. **API health:** `curl https://<railway>/health` → 200 `ok`.
+2. **Model ready:** `curl https://<railway>/health/model` → `ready` (retry if
+   still loading).
+3. **Search:** open the Vercel site → query `Krishna Enterprise` → top hit is
+   that business; footer shows **Score** (not Relevance).
+4. **Filters:** Industry / City / Nature dropdowns have real options (not only
+   All); applying a filter returns a narrowed list.
+5. **Highlighting:** query containing `Enterprise` does **not** split
+   `Enterprises` into marked `Enterprise` + bare `s`.
+6. **Validation:** Register with business name `<b>x</b>` → field error
+   rejecting `<` / `>`; request must not succeed.
+7. **CORS:** browser Network tab for `/api/search` shows 200 (not a CORS
+   failure). If blocked, fix `CORS_ALLOW_ORIGINS` to the exact Vercel origin
+   and restart Railway.
 
 ---
 
@@ -700,7 +772,8 @@ Not yet deployed; this is the intended path.
 - **Grow the golden set.** 30 queries over 120 documents is enough to make
   directional calls, not enough for tight confidence intervals. More queries and
   multiple judges would harden every conclusion above.
-- **Deployment**, per the guide above.
+- **Hardening the public deploy** — auth, rate limits, and optional rerank on a
+  larger Railway plan (see Deployment guide).
 
 ---
 
