@@ -1,0 +1,190 @@
+{
+  "suites": {
+    "symptom-only": {
+      "raw": {
+        "success3": 0.3,
+        "recall3": 0.35,
+        "p5": 0.4
+      },
+      "expanded": {
+        "success3": 0.8,
+        "recall3": 0.7,
+        "p5": 0.5599999999999999
+      },
+      "raw+expanded": {
+        "success3": 0.8,
+        "recall3": 0.7,
+        "p5": 0.58
+      }
+    },
+    "names a service": {
+      "raw": {
+        "success3": 0.8,
+        "recall3": 0.8444444444444444,
+        "p5": 0.5733333333333334
+      },
+      "expanded": {
+        "success3": 0.8666666666666667,
+        "recall3": 0.9111111111111111,
+        "p5": 0.5866666666666666
+      },
+      "raw+expanded": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6
+      }
+    }
+  },
+  "per_query": {
+    "rev-01": {
+      "query": "My company keeps getting suspicious emails and I want someone to make sure our employees don't fall for scams",
+      "raw": 1.0,
+      "expanded": 0.0,
+      "raw+expanded": 0.0
+    },
+    "sit-02": {
+      "query": "We're opening a new office next month and the space is completely bare",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-03": {
+      "query": "Our vegetables keep spoiling before they reach the shops",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-04": {
+      "query": "Nobody can find us when they search online",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-05": {
+      "query": "I got a notice from the tax department and I don't understand it",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-06": {
+      "query": "Our machines on the shop floor keep breaking and we only find out when production stops",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-07": {
+      "query": "We have 200 staff and nobody knows how to handle an angry customer",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-08": {
+      "query": "Customers keep telling us the product arrived damaged",
+      "raw": 0.0,
+      "expanded": 0.0,
+      "raw+expanded": 0.0
+    },
+    "sit-09": {
+      "query": "Our website goes down every time we get a rush of visitors",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sit-10": {
+      "query": "We're moving to a new city and everything has to get there",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sem-01": {
+      "query": "I need help filing my business taxes",
+      "raw": 1.0,
+      "expanded": 0.0,
+      "raw+expanded": 1.0
+    },
+    "sem-02": {
+      "query": "looking for a place to stay overnight during my business trip",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sem-03": {
+      "query": "who can help me build a mobile app for my startup",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "sem-04": {
+      "query": "need someone to keep my medicines and health supplies stocked",
+      "raw": 1.0,
+      "expanded": 0.0,
+      "raw+expanded": 1.0
+    },
+    "sem-05": {
+      "query": "want to grow crops without using chemicals",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "kw-01": {
+      "query": "SOC penetration testing ISO27001 compliance",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "kw-02": {
+      "query": "GST filing GST registration indirect tax",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "kw-03": {
+      "query": "PLC robotics smart factory IIoT",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "kw-04": {
+      "query": "AWS Azure cloud migration DevOps",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "kw-05": {
+      "query": "structural steel fabrication welding",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "syn-01": {
+      "query": "computer hacking defense and security auditing firm",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "syn-02": {
+      "query": "workplace skill-building and leadership programs",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "syn-03": {
+      "query": "crop irrigation machinery supplier",
+      "raw": 1.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "syn-04": {
+      "query": "helping shoppers remember and trust a company's image",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    },
+    "syn-05": {
+      "query": "search engine visibility and paid ads specialists",
+      "raw": 0.0,
+      "expanded": 1.0,
+      "raw+expanded": 1.0
+    }
+  }
+}

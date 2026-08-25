@@ -1,0 +1,69 @@
+{
+  "intent_provider": "llm",
+  "suites": {
+    "symptom-only (situational)": {
+      "always": {
+        "success3": 0.3,
+        "recall3": 0.31666666666666665,
+        "p5": 0.27999999999999997
+      },
+      "never": {
+        "success3": 0.3,
+        "recall3": 0.35,
+        "p5": 0.4
+      },
+      "intent-gated": {
+        "success3": 0.3,
+        "recall3": 0.35,
+        "p5": 0.4
+      }
+    },
+    "names a service (golden)": {
+      "always": {
+        "success3": 0.8,
+        "recall3": 0.8444444444444444,
+        "p5": 0.5733333333333334
+      },
+      "never": {
+        "success3": 0.6666666666666666,
+        "recall3": 0.7777777777777778,
+        "p5": 0.5466666666666666
+      },
+      "intent-gated": {
+        "success3": 0.8,
+        "recall3": 0.8444444444444444,
+        "p5": 0.5733333333333334
+      }
+    }
+  },
+  "reranked_counts": {
+    "symptom-only (situational)": {
+      "always": [
+        10,
+        10
+      ],
+      "never": [
+        0,
+        10
+      ],
+      "intent-gated": [
+        0,
+        10
+      ]
+    },
+    "names a service (golden)": {
+      "always": [
+        15,
+        15
+      ],
+      "never": [
+        0,
+        15
+      ],
+      "intent-gated": [
+        15,
+        15
+      ]
+    }
+  }
+}

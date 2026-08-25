@@ -1,0 +1,361 @@
+{
+  "corpus_size": 120,
+  "sub_categories": 40,
+  "queries": [
+    {
+      "id": "rev-01",
+      "query": "My company keeps getting suspicious emails and I want someone to make sure our employees don't fall for scams",
+      "target": [
+        "Cybersecurity"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 1.0,
+          "recall3": 1.0,
+          "p5": 0.6,
+          "p5_ceiling": 0.6,
+          "first_rank": 1,
+          "top3": [
+            "Global Cybersecurity Solutions",
+            "Next Cybersecurity Industries",
+            "Prime Cybersecurity Enterprises"
+          ]
+        },
+        "hybrid": {
+          "success3": 1.0,
+          "recall3": 1.0,
+          "p5": 0.6,
+          "p5_ceiling": 0.6,
+          "first_rank": 1,
+          "top3": [
+            "Prime Cybersecurity Enterprises",
+            "Global Cybersecurity Solutions",
+            "Next Cybersecurity Industries"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-02",
+      "query": "We're opening a new office next month and the space is completely bare",
+      "target": [
+        "Interior Design"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.0,
+          "p5_ceiling": 0.6,
+          "first_rank": 6,
+          "top3": [
+            "Prime Food Solutions",
+            "Next Food Solutions",
+            "Nova Cold Solutions"
+          ]
+        },
+        "hybrid": {
+          "success3": 1.0,
+          "recall3": 1.0,
+          "p5": 0.6,
+          "p5_ceiling": 0.6,
+          "first_rank": 1,
+          "top3": [
+            "Smart Interior Enterprises",
+            "Elite Interior Solutions",
+            "Green Interior Industries"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-03",
+      "query": "Our vegetables keep spoiling before they reach the shops",
+      "target": [
+        "Cold Chain"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.0,
+          "p5_ceiling": 0.6,
+          "first_rank": null,
+          "top3": [
+            "Prime Organic Solutions",
+            "Nova Organic Industries",
+            "Vertex Organic Enterprises"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.0,
+          "p5_ceiling": 0.6,
+          "first_rank": null,
+          "top3": [
+            "Vertex Organic Enterprises",
+            "Prime Organic Solutions",
+            "Nova Organic Industries"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-04",
+      "query": "Nobody can find us when they search online",
+      "target": [
+        "Digital Marketing"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.0,
+          "p5_ceiling": 0.6,
+          "first_rank": null,
+          "top3": [
+            "Apex Warehousing Solutions",
+            "Nova Cafes Solutions",
+            "Global Cybersecurity Solutions"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.3333333333333333,
+          "p5": 0.4,
+          "p5_ceiling": 0.6,
+          "first_rank": 3,
+          "top3": [
+            "Prime EdTech Solutions",
+            "Vertex EdTech Enterprises",
+            "Green Digital Solutions"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-05",
+      "query": "I got a notice from the tax department and I don't understand it",
+      "target": [
+        "Chartered Accountants",
+        "GST Consultants"
+      ],
+      "n_relevant": 6,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.2,
+          "p5_ceiling": 1.0,
+          "first_rank": 5,
+          "top3": [
+            "Vertex Software Solutions",
+            "Green Printing Solutions",
+            "Vertex Medical Solutions"
+          ]
+        },
+        "hybrid": {
+          "success3": 1.0,
+          "recall3": 0.5,
+          "p5": 1.0,
+          "p5_ceiling": 1.0,
+          "first_rank": 1,
+          "top3": [
+            "Smart GST Solutions",
+            "Global GST Industries",
+            "Next GST Enterprises"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-06",
+      "query": "Our machines on the shop floor keep breaking and we only find out when production stops",
+      "target": [
+        "Industrial Automation"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 1.0,
+          "recall3": 1.0,
+          "p5": 0.6,
+          "p5_ceiling": 0.6,
+          "first_rank": 1,
+          "top3": [
+            "Next Industrial Solutions",
+            "Prime Industrial Industries",
+            "Nova Industrial Enterprises"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.3333333333333333,
+          "p5": 0.4,
+          "p5_ceiling": 0.6,
+          "first_rank": 2,
+          "top3": [
+            "Apex Medical Enterprises",
+            "Next Industrial Solutions",
+            "Apex Steel Industries"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-07",
+      "query": "We have 200 staff and nobody knows how to handle an angry customer",
+      "target": [
+        "Corporate Training"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.0,
+          "p5_ceiling": 0.6,
+          "first_rank": null,
+          "top3": [
+            "Blue Steel Solutions",
+            "Smart Courier Solutions",
+            "Apex Chartered Solutions"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.2,
+          "p5_ceiling": 0.6,
+          "first_rank": 5,
+          "top3": [
+            "Elite Pharmacies Solutions",
+            "Smart Courier Solutions",
+            "Apex Warehousing Solutions"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-08",
+      "query": "Customers keep telling us the product arrived damaged",
+      "target": [
+        "Food Packaging",
+        "Freight Transport"
+      ],
+      "n_relevant": 6,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.3333333333333333,
+          "p5": 0.4,
+          "p5_ceiling": 1.0,
+          "first_rank": 2,
+          "top3": [
+            "Vertex Medical Solutions",
+            "Prime Food Solutions",
+            "Vertex Food Enterprises"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.2,
+          "p5_ceiling": 1.0,
+          "first_rank": 5,
+          "top3": [
+            "Vertex Medical Solutions",
+            "Blue Steel Solutions",
+            "Smart Courier Solutions"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-09",
+      "query": "Our website goes down every time we get a rush of visitors",
+      "target": [
+        "Cloud Services"
+      ],
+      "n_relevant": 3,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 0.0,
+          "recall3": 0.3333333333333333,
+          "p5": 0.2,
+          "p5_ceiling": 0.6,
+          "first_rank": 3,
+          "top3": [
+            "Green Catering Enterprises",
+            "Vertex Software Solutions",
+            "Smart Cloud Enterprises"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.0,
+          "p5": 0.0,
+          "p5_ceiling": 0.6,
+          "first_rank": 10,
+          "top3": [
+            "Vertex Advertising Solutions",
+            "Green Digital Solutions",
+            "Global Digital Enterprises"
+          ]
+        }
+      }
+    },
+    {
+      "id": "sit-10",
+      "query": "We're moving to a new city and everything has to get there",
+      "target": [
+        "Freight Transport",
+        "Courier Services"
+      ],
+      "n_relevant": 6,
+      "configs": {
+        "hybrid+rerank": {
+          "success3": 1.0,
+          "recall3": 0.5,
+          "p5": 0.8,
+          "p5_ceiling": 1.0,
+          "first_rank": 1,
+          "top3": [
+            "Global Courier Industries",
+            "Smart Courier Solutions",
+            "Global Freight Solutions"
+          ]
+        },
+        "hybrid": {
+          "success3": 0.0,
+          "recall3": 0.3333333333333333,
+          "p5": 0.6,
+          "p5_ceiling": 1.0,
+          "first_rank": 2,
+          "top3": [
+            "Next Food Solutions",
+            "Next Courier Enterprises",
+            "Smart Courier Solutions"
+          ]
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "hybrid+rerank": {
+      "success3": 0.2222222222222222,
+      "recall3": 0.24074074074074073,
+      "p5": 0.24444444444444446
+    },
+    "hybrid": {
+      "success3": 0.2222222222222222,
+      "recall3": 0.2777777777777778,
+      "p5": 0.37777777777777777
+    }
+  }
+}

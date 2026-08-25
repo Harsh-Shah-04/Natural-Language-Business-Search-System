@@ -62,11 +62,35 @@ export interface SearchResult {
   matched_via: MatchedVia;
 }
 
+/**
+ * Where an inferred intent came from. Mirrors app/intent.py's providers.
+ * `embedding-taxonomy` = classified against the service taxonomy;
+ * `fixture` = checked-in stand-in for the not-yet-built LLM provider.
+ */
+export type IntentSource = 'embedding-taxonomy' | 'fixture' | 'llm' | string;
+
+/**
+ * What the backend understood the query to mean (M6.1), mirroring QueryIntent
+ * in backend/app/schemas.py. Null on the response when the intent layer had no
+ * opinion it was prepared to stand behind — the UI shows nothing in that case
+ * rather than a guess.
+ */
+export interface QueryIntent {
+  underlying_need: string;
+  /** Always values from the backend's trusted taxonomy, never free text. */
+  service_categories: string[];
+  expanded_query: string;
+  exclusions: string[];
+  confidence: number;
+  source: IntentSource;
+}
+
 /** Response body from POST /api/search. */
 export interface SearchResponse {
   query: string;
   results: SearchResult[];
   filters: SearchFilters | null;
+  intent: QueryIntent | null;
 }
 
 /**

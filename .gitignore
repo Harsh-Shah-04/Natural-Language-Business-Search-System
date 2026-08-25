@@ -11,3 +11,7 @@ node_modules/
 backend/.gstack-qa-screenshots/
 ~$*
 *.tmp
+
+# 662MB demo recording — far over GitHub's 100MB file limit.
+demo_video.mp4
+*.mp4

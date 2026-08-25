@@ -351,3 +351,140 @@ def search_businesses(
             pass
 
     return fused[:limit]
+
+
+# ---------------------------------------------------------------------------
+# M6.1: query understanding
+#
+# Everything above this line is unchanged. search_businesses() keeps its exact
+# behavior and signature, because scripts/eval.py and
+# scripts/measure_situational_baseline.py both call it directly and are the
+# only instruments available for judging whether any of this helps.
+# ---------------------------------------------------------------------------
+
+# Whether the inferred intent's expanded_query is used for RETRIEVAL, or only
+# returned for display. Default off, deliberately.
+#
+# The expansion is real and available (app/intent.py builds it from the trusted
+# taxonomy's service vocabulary), but its effect on ranking has not been
+# measured yet, and the one clean baseline that exists
+# (eval_reports/baseline_situational_20260825.md) describes the un-expanded
+# pipeline. Turning expansion on in the same change that adds the intent panel
+# would make the next measurement uninterpretable: a moved number could come
+# from either. Flip this on with scripts/measure_intent_search.py in hand.
+INTENT_EXPANSION_ENABLED = os.environ.get(
+    "INTENT_EXPANSION_ENABLED", "false"
+).lower() in ("1", "true", "yes")
+
+# Query-conditional reranking policy.
+#
+#   intent-gated  rerank only when the intent CLASSIFIER recognised the query
+#                 (the default, on the measurement below).
+#   always        rerank every query -- what shipped before M6.1.
+#   never         never rerank.
+#
+# Why a policy is needed at all. The situational baseline measured the
+# cross-encoder as a net negative on symptom-only queries: P@5 0.244 with
+# reranking versus 0.378 without, a 35.3% relative decline, driven by cases
+# where it takes a correct rank-1 result and buries it (sit-02 1->6, sit-05
+# 1->5). M4.2 measured the opposite on the golden set. Both are true: the
+# golden set names its services and the situational set does not, and the
+# cross-encoder shares the bi-encoder's world-knowledge ceiling, so it cannot
+# score a symptom query against a service document any better than retrieval
+# already did.
+#
+# Why the switch can be the classifier. app/intent.py separates those two
+# classes on exactly the same axis: it fires on named-service queries
+# (similarity min 0.597) and stays silent on symptom queries and gibberish
+# (max 0.563). "The classifier recognised this query" is a usable proxy for
+# "reranking is likely to help here". It keys on the classifier alone -- a
+# fixture intent says nothing about whether a query names a service.
+#
+# Why it is the default -- scripts/measure_rerank_policy.py, both classes:
+#
+#                    symptom-only (n=10)        names a service (n=15)
+#   policy        success@3  recall@3   P@5   success@3  recall@3   P@5
+#   always            0.300     0.317  0.280      0.800     0.844  0.573
+#   never             0.300     0.350  0.400      0.667     0.778  0.547
+#   intent-gated      0.300     0.350  0.400      0.800     0.844  0.573
+#
+# intent-gated is strictly dominant: it takes the whole of "never"'s symptom
+# gain (P@5 +0.120, +42.9% relative) while matching "always" exactly on
+# named-service queries. Note also what the middle row rules out -- globally
+# disabling the reranker would have cost the named-service class 0.133
+# success@3, which is why the situational finding alone was never sufficient
+# grounds to switch it off.
+#
+# HONEST LIMIT. MIN_SIMILARITY was derived from these same 25 queries, so
+# "the classifier routes correctly" is in-sample and 15/15/10/10 is partly
+# guaranteed by construction. The per-class retrieval deltas are real
+# (they reduce to always-vs-never within each class), but routing accuracy on
+# unseen queries is unproven. The downside is bounded either way: a symptom
+# query misrouted to rerank performs exactly like the old default, and a
+# named-service query misrouted away from it loses at most what the "never"
+# row shows. Re-derive the threshold on held-out queries before trusting the
+# routing itself.
+RERANK_POLICY = os.environ.get("RERANK_POLICY", "intent-gated").strip().lower()
+
+
+def _should_rerank(query: str, intent) -> bool:
+    """Resolve RERANK_POLICY for one query.
+
+    RERANK_ENABLED still wins as a kill switch under every policy: an operator
+    who turned reranking off entirely must not have it turned back on by a
+    routing decision. Unknown policy values fall back to "always" rather than
+    failing a search.
+
+    M6.2 changed what "intent-gated" asks. It used to test
+    `intent.source == "embedding-taxonomy"`, which was the same question as
+    "does this query name its service" only while the classifier was the sole
+    provider. The LLM provider answers symptom queries too, so that test would
+    now switch reranking ON for exactly the class the cross-encoder was
+    measured to damage. It asks app.intent.names_a_service() instead, which is
+    the classifier's gate regardless of which provider is displaying an intent.
+    """
+    if not RERANK_ENABLED:
+        return False
+    if RERANK_POLICY == "never":
+        return False
+    if RERANK_POLICY == "intent-gated":
+        # Free when the classifier already answered for the display intent;
+        # one embedding plus 40 dot products otherwise.
+        if intent is not None and intent.source == "embedding-taxonomy":
+            return True
+        from app.intent import names_a_service
+
+        return names_a_service(query)
+    return True
+
+
+def search_with_intent(
+    query: str,
+    limit: int,
+    filters: dict[str, str | None] | None = None,
+):
+    """Infer intent, then search. Returns (intent | None, results).
+
+    The HTTP layer's entry point as of M6.1. Composed of two independent steps
+    rather than folded into search_businesses() so that:
+
+      - search_businesses() stays byte-identical in behavior, and the eval
+        scripts keep measuring the same thing they measured before;
+      - a failure in the intent layer costs the user a panel, never their
+        results (app.intent.infer_intent never raises, and this function does
+        not add a way for it to start).
+    """
+    from app.intent import infer_intent  # local: keeps import order simple
+
+    intent = infer_intent(query)
+
+    retrieval_query = query
+    if INTENT_EXPANSION_ENABLED and intent is not None and intent.expanded_query:
+        retrieval_query = intent.expanded_query
+
+    # Routing asks about the ORIGINAL query, not the expanded one: whether the
+    # user named their service is a property of what they typed.
+    results = search_businesses(
+        retrieval_query, limit, filters, rerank=_should_rerank(query, intent)
+    )
+    return intent, results

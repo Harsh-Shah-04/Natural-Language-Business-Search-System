@@ -1,0 +1,31 @@
+{
+  "_note": "CHECKED-IN FIXTURES -- a stand-in for the M6.2 LLM provider, not inference. Each entry is what an LLM constrained to the trusted taxonomy in app/taxonomy.json is expected to return for that query. Matched on exact normalised query text only, and every intent served from here carries source='fixture' in the API response so the UI can label its provenance. These exist so the contextual-search experience can be built and reviewed before an API dependency is added; they are not a search feature and they generalise to nothing.",
+  "_why_these_queries": "All three are cases scripts/measure_intent.py shows the embedding classifier cannot handle: it scores them below the MIN_SIMILARITY gate (rev-01, 0.543) or confidently picks the wrong category (sit-03 -> Organic Farming, sit-09 -> Digital Marketing). They are the demonstration of what the LLM provider has to add, chosen from measured failures rather than picked to look good.",
+  "_expanded_query_note": "Deliberately null. app/intent.py derives it from the taxonomy's own vocabulary, so no retrieval-affecting text is hand-authored here.",
+  "intents": [
+    {
+      "query": "My company keeps getting suspicious emails and I want someone to make sure our employees don't fall for scams",
+      "underlying_need": "phishing protection and employee security-awareness training",
+      "service_categories": ["Cybersecurity"],
+      "expanded_query": null,
+      "exclusions": [],
+      "confidence": 0.95
+    },
+    {
+      "query": "Our vegetables keep spoiling before they reach the shops",
+      "underlying_need": "temperature-controlled storage and refrigerated transport for perishable goods",
+      "service_categories": ["Cold Chain"],
+      "expanded_query": null,
+      "exclusions": [],
+      "confidence": 0.91
+    },
+    {
+      "query": "Our website goes down every time we get a rush of visitors",
+      "underlying_need": "scalable hosting infrastructure that absorbs traffic spikes",
+      "service_categories": ["Cloud Services"],
+      "expanded_query": null,
+      "exclusions": [],
+      "confidence": 0.89
+    }
+  ]
+}
