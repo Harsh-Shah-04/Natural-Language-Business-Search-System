@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { FilterPanel } from '../components/FilterPanel';
+import { IntentPanel } from '../components/IntentPanel';
 import { ResultsList } from '../components/ResultsList';
 import { SearchBar } from '../components/SearchBar';
 import { StatusMessage } from '../components/StatusMessage';
@@ -22,7 +23,7 @@ export function SearchPage({ trigger, filtersRefreshNonce = 0 }: SearchPageProps
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState<SearchFilters>({});
   const { options, reload: reloadFilterOptions } = useFilterOptions();
-  const { status, results, submittedQuery, error, search } = useSearch();
+  const { status, results, intent, submittedQuery, error, search } = useSearch();
 
   const isLoading = status === 'loading';
   const hasSearched = submittedQuery !== '';
@@ -96,9 +97,15 @@ export function SearchPage({ trigger, filtersRefreshNonce = 0 }: SearchPageProps
           />
         )}
 
+        {/* Above the results, and outside the results-length check: what the
+            system understood is worth showing even when nothing matched — that
+            pairing is exactly how a user tells "misread me" from "has no such
+            business". Absent whenever the backend returned no intent. */}
+        {status === 'success' && intent && <IntentPanel intent={intent} />}
+
         {status === 'success' &&
           (results.length > 0 ? (
-            <ResultsList results={results} query={submittedQuery} />
+            <ResultsList results={results} />
           ) : (
             <StatusMessage
               variant="empty"

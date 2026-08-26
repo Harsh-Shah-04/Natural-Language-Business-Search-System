@@ -2,13 +2,19 @@ import { useCallback, useRef, useState } from 'react';
 
 import { ApiError } from '../api/client';
 import { searchBusinesses } from '../api/search';
-import type { SearchFilters, SearchResult } from '../types/api';
+import type { QueryIntent, SearchFilters, SearchResult } from '../types/api';
 
 export type SearchStatus = 'idle' | 'loading' | 'success' | 'error';
 
 interface SearchState {
   status: SearchStatus;
   results: SearchResult[];
+  /**
+   * What the backend understood the query to mean, or null when it had no
+   * opinion. Held alongside the results it was inferred for, so a stale intent
+   * can never be shown next to fresh results.
+   */
+  intent: QueryIntent | null;
   /** The query string that produced the current results (for empty-state copy). */
   submittedQuery: string;
   error: string | null;
@@ -17,6 +23,7 @@ interface SearchState {
 const INITIAL: SearchState = {
   status: 'idle',
   results: [],
+  intent: null,
   submittedQuery: '',
   error: null,
 };
@@ -44,6 +51,9 @@ export function useSearch() {
       setState({
         status: 'success',
         results: response.results,
+        // Tolerate a backend that predates M6.1 (or has the intent layer
+        // disabled): `intent` is simply absent, and the panel does not render.
+        intent: response.intent ?? null,
         submittedQuery: trimmed,
         error: null,
       });

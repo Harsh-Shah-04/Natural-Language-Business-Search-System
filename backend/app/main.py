@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.embeddings import get_embedder, get_model_health
 from app.filters import FilterValidationError, get_filter_allowlist
+from app.intent import get_intent_health
+from app.intent import warm_up as warm_up_intent
 from app.registration import (
     BusinessConflictError,
     RegistrationUnavailableError,
@@ -15,11 +17,12 @@ from app.registration import (
 from app.reranker import get_reranker, get_reranker_health
 from app.schemas import (
     BusinessRegistration,
+    QueryIntent,
     RegisteredBusiness,
     SearchRequest,
     SearchResponse,
 )
-from app.search import RERANK_ENABLED, SearchUnavailableError, search_businesses
+from app.search import RERANK_ENABLED, SearchUnavailableError, search_with_intent
 
 
 def _warm_up_embedder() -> None:
@@ -50,6 +53,12 @@ def _warm_up_filters() -> None:
         pass
 
 
+def _warm_up_intent() -> None:
+    # Embeds the 40 taxonomy profiles once so no live request pays for them.
+    # app.intent.warm_up() already swallows and records its own failures.
+    warm_up_intent()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the models and the filter allow-list in the background so the API
@@ -60,6 +69,10 @@ async def lifespan(app: FastAPI):
     threading.Thread(target=_warm_up_filters, daemon=True).start()
     if RERANK_ENABLED:
         threading.Thread(target=_warm_up_reranker, daemon=True).start()
+    # Runs after the embedder warm-up is queued: it needs the same model, and
+    # get_embedder() serialises on its own lock, so this thread simply waits
+    # rather than triggering a second load.
+    threading.Thread(target=_warm_up_intent, daemon=True).start()
     yield
 
 
@@ -105,6 +118,17 @@ def health_reranker() -> dict[str, str]:
     return get_reranker_health()
 
 
+@app.get("/health/intent")
+def health_intent() -> dict[str, str]:
+    # Independent from /health/model and /health/reranker for the same reason
+    # those two are independent of each other: search works with the intent
+    # layer down (results are unaffected, the panel is simply absent), so its
+    # state needs to be observable without being fatal. Reports the active
+    # provider so a deployment running fixtures, or the not-yet-built LLM
+    # provider, is visible rather than inferred.
+    return get_intent_health()
+
+
 @app.get("/api/filters/values")
 def filters_values() -> dict[str, list[str]]:
     allowlist = get_filter_allowlist()
@@ -115,12 +139,24 @@ def filters_values() -> dict[str, list[str]]:
 def search(request: SearchRequest) -> SearchResponse:
     filters_dict = request.filters.model_dump() if request.filters else None
     try:
-        results = search_businesses(request.query, request.limit, filters_dict)
+        # M6.1: was search_businesses(). search_with_intent() runs the same
+        # retrieval and additionally returns what the system understood the
+        # query to mean — or None, when it has no opinion worth showing.
+        # Retrieval behavior is unchanged: intent is display-only unless
+        # INTENT_EXPANSION_ENABLED / RERANK_POLICY are set (both default to
+        # the pre-M6.1 behavior). Intent failures never reach here — see
+        # app.intent.infer_intent.
+        intent, results = search_with_intent(request.query, request.limit, filters_dict)
     except FilterValidationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     except SearchUnavailableError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
-    return SearchResponse(query=request.query, results=results, filters=request.filters)
+    return SearchResponse(
+        query=request.query,
+        results=results,
+        filters=request.filters,
+        intent=QueryIntent(**intent.to_dict()) if intent else None,
+    )
 
 
 @app.post("/api/businesses", status_code=201)

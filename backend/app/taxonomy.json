@@ -1,0 +1,409 @@
+{
+  "_source": "Business_Matchmaking_Test_Dataset_V2_120_Companies.xlsx",
+  "_generator": "scripts/build_taxonomy.py",
+  "_note": "TRUSTED, CODE-OWNED DATA. Generated from the checked-in seed dataset, never from the businesses collection -- POST /api/businesses is unauthenticated, so collection-derived values are attacker-influenced. Do not hand-edit; re-run the generator.",
+  "business_count": 120,
+  "category_count": 40,
+  "categories": {
+    "AI Solutions": {
+      "sub_category": "AI Solutions",
+      "industry": "Information Technology",
+      "nature": "Services",
+      "specialties": "chatbots, NLP, computer vision, automation",
+      "keywords": "chatbots, NLP, computer vision, automation, ai solutions, information technology",
+      "products_services": "chatbots, NLP, computer vision, automation",
+      "need": null,
+      "member_count": 3
+    },
+    "Advertising": {
+      "sub_category": "Advertising",
+      "industry": "Marketing",
+      "nature": "Services",
+      "specialties": "media buying, campaigns, creative",
+      "keywords": "media buying, campaigns, creative, advertising, marketing",
+      "products_services": "media buying, campaigns, creative",
+      "need": null,
+      "member_count": 3
+    },
+    "Branding": {
+      "sub_category": "Branding",
+      "industry": "Marketing",
+      "nature": "Services",
+      "specialties": "brand identity, logo, positioning",
+      "keywords": "brand identity, logo, positioning, branding, marketing",
+      "products_services": "brand identity, logo, positioning",
+      "need": null,
+      "member_count": 3
+    },
+    "Cafes": {
+      "sub_category": "Cafes",
+      "industry": "Hospitality",
+      "nature": "Services",
+      "specialties": "coffee, bakery, snacks",
+      "keywords": "coffee, bakery, snacks, cafes, hospitality",
+      "products_services": "coffee, bakery, snacks",
+      "need": null,
+      "member_count": 3
+    },
+    "Catering": {
+      "sub_category": "Catering",
+      "industry": "Hospitality",
+      "nature": "Services",
+      "specialties": "corporate catering, weddings",
+      "keywords": "corporate catering, weddings, catering, hospitality",
+      "products_services": "corporate catering, weddings",
+      "need": null,
+      "member_count": 3
+    },
+    "Chartered Accountants": {
+      "sub_category": "Chartered Accountants",
+      "industry": "Finance",
+      "nature": "Services",
+      "specialties": "audit, accounting, tax planning, compliance",
+      "keywords": "audit, accounting, tax planning, compliance, chartered accountants, finance",
+      "products_services": "audit, accounting, tax planning, compliance",
+      "need": null,
+      "member_count": 3
+    },
+    "Civil Contractors": {
+      "sub_category": "Civil Contractors",
+      "industry": "Construction",
+      "nature": "Services",
+      "specialties": "commercial buildings, residential projects",
+      "keywords": "commercial buildings, residential projects, civil contractors, construction",
+      "products_services": "commercial buildings, residential projects",
+      "need": null,
+      "member_count": 3
+    },
+    "Cloud Services": {
+      "sub_category": "Cloud Services",
+      "industry": "Information Technology",
+      "nature": "Services",
+      "specialties": "AWS, Azure, cloud migration, DevOps",
+      "keywords": "AWS, Azure, cloud migration, DevOps, cloud services, information technology",
+      "products_services": "AWS, Azure, cloud migration, DevOps",
+      "need": null,
+      "member_count": 3
+    },
+    "Coaching Institutes": {
+      "sub_category": "Coaching Institutes",
+      "industry": "Education",
+      "nature": "Services",
+      "specialties": "competitive exams, tutoring",
+      "keywords": "competitive exams, tutoring, coaching institutes, education",
+      "products_services": "competitive exams, tutoring",
+      "need": null,
+      "member_count": 3
+    },
+    "Cold Chain": {
+      "sub_category": "Cold Chain",
+      "industry": "Logistics",
+      "nature": "Services",
+      "specialties": "refrigerated logistics, frozen transport, cold storage",
+      "keywords": "refrigerated logistics, frozen transport, cold storage, cold chain, logistics",
+      "products_services": "refrigerated logistics, frozen transport, cold storage",
+      "need": null,
+      "member_count": 3
+    },
+    "Corporate Training": {
+      "sub_category": "Corporate Training",
+      "industry": "Education",
+      "nature": "Services",
+      "specialties": "leadership, sales, technical training",
+      "keywords": "leadership, sales, technical training, corporate training, education",
+      "products_services": "leadership, sales, technical training",
+      "need": null,
+      "member_count": 3
+    },
+    "Courier Services": {
+      "sub_category": "Courier Services",
+      "industry": "Logistics",
+      "nature": "Services",
+      "specialties": "express delivery, last mile, parcels",
+      "keywords": "express delivery, last mile, parcels, courier services, logistics",
+      "products_services": "express delivery, last mile, parcels",
+      "need": null,
+      "member_count": 3
+    },
+    "Cybersecurity": {
+      "sub_category": "Cybersecurity",
+      "industry": "Information Technology",
+      "nature": "Services",
+      "specialties": "SOC, penetration testing, ISO27001, compliance",
+      "keywords": "SOC, penetration testing, ISO27001, compliance, cybersecurity, information technology",
+      "products_services": "SOC, penetration testing, ISO27001, compliance",
+      "need": null,
+      "member_count": 3
+    },
+    "Diagnostic Labs": {
+      "sub_category": "Diagnostic Labs",
+      "industry": "Healthcare",
+      "nature": "Services",
+      "specialties": "blood tests, pathology, imaging, diagnostics",
+      "keywords": "blood tests, pathology, imaging, diagnostics, diagnostic labs, healthcare",
+      "products_services": "blood tests, pathology, imaging, diagnostics",
+      "need": null,
+      "member_count": 3
+    },
+    "Digital Marketing": {
+      "sub_category": "Digital Marketing",
+      "industry": "Marketing",
+      "nature": "Services",
+      "specialties": "SEO, PPC, social media",
+      "keywords": "SEO, PPC, social media, digital marketing, marketing",
+      "products_services": "SEO, PPC, social media",
+      "need": null,
+      "member_count": 3
+    },
+    "EdTech": {
+      "sub_category": "EdTech",
+      "industry": "Education",
+      "nature": "Services",
+      "specialties": "e-learning, LMS, online education",
+      "keywords": "e-learning, LMS, online education, edtech, education",
+      "products_services": "e-learning, LMS, online education",
+      "need": null,
+      "member_count": 3
+    },
+    "Electrical Contractors": {
+      "sub_category": "Electrical Contractors",
+      "industry": "Construction",
+      "nature": "Services",
+      "specialties": "industrial electricals, solar, wiring",
+      "keywords": "industrial electricals, solar, wiring, electrical contractors, construction",
+      "products_services": "industrial electricals, solar, wiring",
+      "need": null,
+      "member_count": 3
+    },
+    "Farm Equipment": {
+      "sub_category": "Farm Equipment",
+      "industry": "Agriculture",
+      "nature": "Goods",
+      "specialties": "tractors, irrigation, implements",
+      "keywords": "tractors, irrigation, implements, farm equipment, agriculture",
+      "products_services": "tractors, irrigation, implements",
+      "need": null,
+      "member_count": 3
+    },
+    "Food Packaging": {
+      "sub_category": "Food Packaging",
+      "industry": "Manufacturing",
+      "nature": "Goods",
+      "specialties": "food packaging, corrugated boxes, restaurant supplies, takeaway containers",
+      "keywords": "food packaging, corrugated boxes, restaurant supplies, takeaway containers, food packaging, manufacturing",
+      "products_services": "food packaging, corrugated boxes, restaurant supplies, takeaway containers",
+      "need": null,
+      "member_count": 3
+    },
+    "Food Processing": {
+      "sub_category": "Food Processing",
+      "industry": "Agriculture",
+      "nature": "Goods",
+      "specialties": "spices, packaged food, ready-to-eat",
+      "keywords": "spices, packaged food, ready-to-eat, food processing, agriculture",
+      "products_services": "spices, packaged food, ready-to-eat",
+      "need": null,
+      "member_count": 3
+    },
+    "Freight Transport": {
+      "sub_category": "Freight Transport",
+      "industry": "Logistics",
+      "nature": "Services",
+      "specialties": "road transport, cargo, trucking",
+      "keywords": "road transport, cargo, trucking, freight transport, logistics",
+      "products_services": "road transport, cargo, trucking",
+      "need": null,
+      "member_count": 3
+    },
+    "GST Consultants": {
+      "sub_category": "GST Consultants",
+      "industry": "Finance",
+      "nature": "Services",
+      "specialties": "GST filing, GST registration, indirect tax, compliance",
+      "keywords": "GST filing, GST registration, indirect tax, compliance, gst consultants, finance",
+      "products_services": "GST filing, GST registration, indirect tax, compliance",
+      "need": null,
+      "member_count": 3
+    },
+    "Hospitals": {
+      "sub_category": "Hospitals",
+      "industry": "Healthcare",
+      "nature": "Services",
+      "specialties": "emergency care, surgery, specialists, healthcare",
+      "keywords": "emergency care, surgery, specialists, healthcare, hospitals, healthcare",
+      "products_services": "emergency care, surgery, specialists, healthcare",
+      "need": null,
+      "member_count": 3
+    },
+    "Hotels": {
+      "sub_category": "Hotels",
+      "industry": "Hospitality",
+      "nature": "Services",
+      "specialties": "accommodation, events, hospitality",
+      "keywords": "accommodation, events, hospitality, hotels, hospitality",
+      "products_services": "accommodation, events, hospitality",
+      "need": null,
+      "member_count": 3
+    },
+    "Industrial Automation": {
+      "sub_category": "Industrial Automation",
+      "industry": "Manufacturing",
+      "nature": "Goods",
+      "specialties": "PLC, robotics, smart factory, IIoT",
+      "keywords": "PLC, robotics, smart factory, IIoT, industrial automation, manufacturing",
+      "products_services": "PLC, robotics, smart factory, IIoT",
+      "need": null,
+      "member_count": 3
+    },
+    "Insurance": {
+      "sub_category": "Insurance",
+      "industry": "Finance",
+      "nature": "Services",
+      "specialties": "business insurance, health insurance, risk management",
+      "keywords": "business insurance, health insurance, risk management, insurance, finance",
+      "products_services": "business insurance, health insurance, risk management",
+      "need": null,
+      "member_count": 3
+    },
+    "Interior Design": {
+      "sub_category": "Interior Design",
+      "industry": "Construction",
+      "nature": "Services",
+      "specialties": "office interiors, restaurant interiors, retail interiors",
+      "keywords": "office interiors, restaurant interiors, retail interiors, interior design, construction",
+      "products_services": "office interiors, restaurant interiors, retail interiors",
+      "need": null,
+      "member_count": 3
+    },
+    "Investment Advisors": {
+      "sub_category": "Investment Advisors",
+      "industry": "Finance",
+      "nature": "Services",
+      "specialties": "wealth management, mutual funds, retirement planning",
+      "keywords": "wealth management, mutual funds, retirement planning, investment advisors, finance",
+      "products_services": "wealth management, mutual funds, retirement planning",
+      "need": null,
+      "member_count": 3
+    },
+    "Medical Equipment": {
+      "sub_category": "Medical Equipment",
+      "industry": "Healthcare",
+      "nature": "Goods",
+      "specialties": "hospital equipment, monitors, ICU, surgical devices",
+      "keywords": "hospital equipment, monitors, ICU, surgical devices, medical equipment, healthcare",
+      "products_services": "hospital equipment, monitors, ICU, surgical devices",
+      "need": null,
+      "member_count": 3
+    },
+    "Organic Farming": {
+      "sub_category": "Organic Farming",
+      "industry": "Agriculture",
+      "nature": "Goods",
+      "specialties": "organic fruits, vegetables, sustainable farming",
+      "keywords": "organic fruits, vegetables, sustainable farming, organic farming, agriculture",
+      "products_services": "organic fruits, vegetables, sustainable farming",
+      "need": null,
+      "member_count": 3
+    },
+    "PR Agencies": {
+      "sub_category": "PR Agencies",
+      "industry": "Marketing",
+      "nature": "Services",
+      "specialties": "media relations, communications",
+      "keywords": "media relations, communications, pr agencies, marketing",
+      "products_services": "media relations, communications",
+      "need": null,
+      "member_count": 3
+    },
+    "Pharmacies": {
+      "sub_category": "Pharmacies",
+      "industry": "Healthcare",
+      "nature": "Services",
+      "specialties": "prescription medicines, OTC, wellness",
+      "keywords": "prescription medicines, OTC, wellness, pharmacies, healthcare",
+      "products_services": "prescription medicines, OTC, wellness",
+      "need": null,
+      "member_count": 3
+    },
+    "Plumbing": {
+      "sub_category": "Plumbing",
+      "industry": "Construction",
+      "nature": "Services",
+      "specialties": "water systems, pipelines, drainage",
+      "keywords": "water systems, pipelines, drainage, plumbing, construction",
+      "products_services": "water systems, pipelines, drainage",
+      "need": null,
+      "member_count": 3
+    },
+    "Printing": {
+      "sub_category": "Printing",
+      "industry": "Manufacturing",
+      "nature": "Goods",
+      "specialties": "offset printing, labels, brochures, packaging print",
+      "keywords": "offset printing, labels, brochures, packaging print, printing, manufacturing",
+      "products_services": "offset printing, labels, brochures, packaging print",
+      "need": null,
+      "member_count": 3
+    },
+    "Restaurants": {
+      "sub_category": "Restaurants",
+      "industry": "Hospitality",
+      "nature": "Services",
+      "specialties": "multi cuisine, dine-in, takeaway",
+      "keywords": "multi cuisine, dine-in, takeaway, restaurants, hospitality",
+      "products_services": "multi cuisine, dine-in, takeaway",
+      "need": null,
+      "member_count": 3
+    },
+    "Schools": {
+      "sub_category": "Schools",
+      "industry": "Education",
+      "nature": "Services",
+      "specialties": "K12 education, CBSE, holistic learning",
+      "keywords": "K12 education, CBSE, holistic learning, schools, education",
+      "products_services": "K12 education, CBSE, holistic learning",
+      "need": null,
+      "member_count": 3
+    },
+    "Seeds & Fertilizers": {
+      "sub_category": "Seeds & Fertilizers",
+      "industry": "Agriculture",
+      "nature": "Goods",
+      "specialties": "hybrid seeds, bio fertilizers, crop nutrition",
+      "keywords": "hybrid seeds, bio fertilizers, crop nutrition, seeds & fertilizers, agriculture",
+      "products_services": "hybrid seeds, bio fertilizers, crop nutrition",
+      "need": null,
+      "member_count": 3
+    },
+    "Software Development": {
+      "sub_category": "Software Development",
+      "industry": "Information Technology",
+      "nature": "Services",
+      "specialties": "custom software, SaaS, mobile apps, web apps",
+      "keywords": "custom software, SaaS, mobile apps, web apps, software development, information technology",
+      "products_services": "custom software, SaaS, mobile apps, web apps",
+      "need": null,
+      "member_count": 3
+    },
+    "Steel Fabrication": {
+      "sub_category": "Steel Fabrication",
+      "industry": "Manufacturing",
+      "nature": "Goods",
+      "specialties": "structural steel, fabrication, industrial projects, welding",
+      "keywords": "structural steel, fabrication, industrial projects, welding, steel fabrication, manufacturing",
+      "products_services": "structural steel, fabrication, industrial projects, welding",
+      "need": null,
+      "member_count": 3
+    },
+    "Warehousing": {
+      "sub_category": "Warehousing",
+      "industry": "Logistics",
+      "nature": "Services",
+      "specialties": "inventory, fulfillment, storage",
+      "keywords": "inventory, fulfillment, storage, warehousing, logistics",
+      "products_services": "inventory, fulfillment, storage",
+      "need": null,
+      "member_count": 3
+    }
+  }
+}

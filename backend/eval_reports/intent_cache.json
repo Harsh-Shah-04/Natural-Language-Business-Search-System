@@ -1,0 +1,249 @@
+{
+  "_note": "LLM intents, fetched once per query. See scripts/intent_cache.py.",
+  "entries": {
+    "ae25619f26a2:deepseek-v4-flash|my company keeps getting suspicious emails and i want someone to make sure our employees don't fall for scams": {
+      "underlying_need": "phishing prevention and employee security awareness training",
+      "service_categories": [
+        "Cybersecurity",
+        "Corporate Training"
+      ],
+      "expanded_query": "phishing email security awareness employee training",
+      "exclusions": [],
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|we're opening a new office next month and the space is completely bare": {
+      "underlying_need": "office interior design and furnishing",
+      "service_categories": [
+        "Interior Design"
+      ],
+      "expanded_query": "office interior design furnishing workspace setup",
+      "exclusions": [],
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|our vegetables keep spoiling before they reach the shops": {
+      "underlying_need": "temperature-controlled transport for fresh produce",
+      "service_categories": [
+        "Cold Chain"
+      ],
+      "expanded_query": "cold chain refrigerated logistics fresh produce transport",
+      "exclusions": [],
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|nobody can find us when they search online": {
+      "underlying_need": "online visibility and search engine presence",
+      "service_categories": [
+        "Digital Marketing"
+      ],
+      "expanded_query": "search engine optimization online visibility digital presence",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|i got a notice from the tax department and i don't understand it": {
+      "underlying_need": "tax notice assistance",
+      "service_categories": [
+        "Chartered Accountants"
+      ],
+      "expanded_query": "tax notice help chartered accountant",
+      "exclusions": [],
+      "confidence": 0.75,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|our machines on the shop floor keep breaking and we only find out when production stops": {
+      "underlying_need": "machine condition monitoring and predictive maintenance",
+      "service_categories": [
+        "Industrial Automation"
+      ],
+      "expanded_query": "machine monitoring predictive maintenance industrial automation",
+      "exclusions": [],
+      "confidence": 0.7,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|we have 200 staff and nobody knows how to handle an angry customer": {
+      "underlying_need": "customer service training",
+      "service_categories": [
+        "Corporate Training"
+      ],
+      "expanded_query": "customer service training conflict resolution staff development",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|customers keep telling us the product arrived damaged": null,
+    "ae25619f26a2:deepseek-v4-flash|our website goes down every time we get a rush of visitors": {
+      "underlying_need": "scalable website hosting",
+      "service_categories": [
+        "Cloud Services"
+      ],
+      "expanded_query": "cloud hosting scalable website traffic spike",
+      "exclusions": [],
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|we're moving to a new city and everything has to get there": {
+      "underlying_need": "household goods relocation transport",
+      "service_categories": [
+        "Freight Transport"
+      ],
+      "expanded_query": "moving household goods freight transport relocation",
+      "exclusions": [],
+      "confidence": 0.75,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|i need help filing my business taxes": {
+      "underlying_need": "business tax filing assistance",
+      "service_categories": [
+        "GST Consultants",
+        "Chartered Accountants"
+      ],
+      "expanded_query": "business tax filing accounting services",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|looking for a place to stay overnight during my business trip": {
+      "underlying_need": "overnight accommodation",
+      "service_categories": [
+        "Hotels"
+      ],
+      "expanded_query": "hotel booking business trip accommodation",
+      "exclusions": [],
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|who can help me build a mobile app for my startup": {
+      "underlying_need": "mobile app development",
+      "service_categories": [
+        "Software Development"
+      ],
+      "expanded_query": "mobile app development startup custom software",
+      "exclusions": [],
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|need someone to keep my medicines and health supplies stocked": {
+      "underlying_need": "pharmaceutical and health supply stocking",
+      "service_categories": [
+        "Pharmacies"
+      ],
+      "expanded_query": "pharmacy medical supplies stocking inventory",
+      "exclusions": [],
+      "confidence": 0.8,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|want to grow crops without using chemicals": {
+      "underlying_need": "chemical-free crop cultivation",
+      "service_categories": [
+        "Organic Farming"
+      ],
+      "expanded_query": "organic farming without chemicals",
+      "exclusions": [],
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|soc penetration testing iso27001 compliance": {
+      "underlying_need": "penetration testing and security compliance",
+      "service_categories": [
+        "Cybersecurity"
+      ],
+      "expanded_query": "penetration testing soc iso27001 compliance security audit",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|gst filing gst registration indirect tax": {
+      "underlying_need": "GST filing and registration services",
+      "service_categories": [
+        "GST Consultants"
+      ],
+      "expanded_query": "gst filing registration indirect tax compliance",
+      "exclusions": [],
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|plc robotics smart factory iiot": {
+      "underlying_need": "industrial automation and smart factory systems",
+      "service_categories": [
+        "Industrial Automation"
+      ],
+      "expanded_query": "plc robotics smart factory iiot industrial automation",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|aws azure cloud migration devops": {
+      "underlying_need": "cloud migration and devops support",
+      "service_categories": [
+        "Cloud Services"
+      ],
+      "expanded_query": "cloud migration devops aws azure",
+      "exclusions": [],
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|structural steel fabrication welding": {
+      "underlying_need": "structural steel fabrication and welding services",
+      "service_categories": [
+        "Steel Fabrication"
+      ],
+      "expanded_query": "structural steel fabrication welding services",
+      "exclusions": [],
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|computer hacking defense and security auditing firm": {
+      "underlying_need": "cybersecurity auditing and defense",
+      "service_categories": [
+        "Cybersecurity"
+      ],
+      "expanded_query": "cybersecurity penetration testing security auditing",
+      "exclusions": [],
+      "confidence": 0.95,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|workplace skill-building and leadership programs": {
+      "underlying_need": "employee skill and leadership development",
+      "service_categories": [
+        "Corporate Training"
+      ],
+      "expanded_query": "corporate training leadership development employee upskilling programs",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|crop irrigation machinery supplier": {
+      "underlying_need": "crop irrigation machinery supply",
+      "service_categories": [
+        "Farm Equipment"
+      ],
+      "expanded_query": "irrigation equipment farm machinery supplier",
+      "exclusions": [],
+      "confidence": 0.85,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|helping shoppers remember and trust a company's image": {
+      "underlying_need": "brand image development and management",
+      "service_categories": [
+        "Branding"
+      ],
+      "expanded_query": "brand identity consumer trust brand recall",
+      "exclusions": [],
+      "confidence": 0.9,
+      "source": "llm"
+    },
+    "ae25619f26a2:deepseek-v4-flash|search engine visibility and paid ads specialists": {
+      "underlying_need": "search engine optimization and paid advertising management",
+      "service_categories": [
+        "Digital Marketing",
+        "Advertising"
+      ],
+      "expanded_query": "seo ppc paid ads search engine marketing",
+      "exclusions": [],
+      "confidence": 0.95,
+      "source": "llm"
+    }
+  }
+}

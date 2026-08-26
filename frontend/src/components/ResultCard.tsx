@@ -1,5 +1,4 @@
 import type { MatchedVia, SearchResult } from '../types/api';
-import { highlightText } from '../utils/highlight';
 
 /** Turn matched_via into display copy. Backend sends semantic | keyword | both. */
 function matchedViaLabel(matchedVia: MatchedVia): string {
@@ -22,19 +21,26 @@ function formatLocation(city: string | null, state: string | null): string {
 
 interface ResultCardProps {
   result: SearchResult;
-  /** The submitted query, used to highlight matched terms in the card text. */
-  query: string;
 }
 
-export function ResultCard({ result, query }: ResultCardProps) {
+/**
+ * Card text is rendered plain. Query terms were previously marked in yellow,
+ * which was removed deliberately: the highlighting matched the raw query
+ * literally, independent of how the result was actually retrieved, so a
+ * document found purely by vector similarity still showed literal term marks
+ * next to a "Semantic" badge. On this corpus the effect was actively
+ * misleading — the templated descriptions mean a query containing "business"
+ * marked that word in 120 of 120 documents, painting the least discriminative
+ * word in the dataset onto every result. `matched_via` (the badge) is the
+ * honest signal for how a result matched; see backend _reciprocal_rank_fusion.
+ */
+export function ResultCard({ result }: ResultCardProps) {
   const location = formatLocation(result.city, result.state);
 
   return (
     <article className="result-card">
       <header className="result-card__header">
-        <h3 className="result-card__name">
-          {highlightText(result.business_name, query)}
-        </h3>
+        <h3 className="result-card__name">{result.business_name}</h3>
         <span
           className={`badge badge--${result.matched_via}`}
           title="How this result matched your query"
@@ -56,17 +62,13 @@ export function ResultCard({ result, query }: ResultCardProps) {
       </div>
 
       {result.business_description && (
-        <p className="result-card__description">
-          {highlightText(result.business_description, query)}
-        </p>
+        <p className="result-card__description">{result.business_description}</p>
       )}
 
       {result.products_services && (
         <div className="result-card__field">
           <span className="result-card__field-label">Products / Services</span>
-          <span className="result-card__field-value">
-            {highlightText(result.products_services, query)}
-          </span>
+          <span className="result-card__field-value">{result.products_services}</span>
         </div>
       )}
 

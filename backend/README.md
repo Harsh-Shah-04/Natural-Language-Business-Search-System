@@ -489,8 +489,168 @@ the full before/after comparison table and honest accounting of what
 tuning fixed and what it didn't. Full per-category breakdown and analysis
 in the generated report (`eval_reports/report_*.md`).
 
+## Query Understanding / Intent (M6.1)
+
+`/api/search` now also returns what the system understood the query to *mean*,
+so a user can see the reading their results were produced from. The response
+gains one nullable field:
+
+```json
+"intent": {
+  "underlying_need": "phishing protection and employee security-awareness training",
+  "service_categories": ["Cybersecurity"],
+  "expanded_query": "...",
+  "exclusions": [],
+  "confidence": 0.95,
+  "source": "fixture"
+}
+```
+
+`intent: null` means the layer had no opinion it was prepared to stand behind,
+and the UI shows no panel. Everything else about the response is unchanged, and
+`search_businesses()` is untouched — `app/search.py`'s `search_with_intent()`
+composes the two steps so `scripts/eval.py` and
+`scripts/measure_situational_baseline.py` keep measuring exactly what they
+measured before.
+
+**The trusted taxonomy.** `app/taxonomy.json` is generated from the checked-in
+seed dataset by `scripts/build_taxonomy.py` and is the *only* source of
+category names the intent layer will use. It is deliberately **not**
+`businesses.distinct("sub_category")`: `POST /api/businesses` is
+unauthenticated, so a collection-derived taxonomy would let any stranger place
+text inside every user's intent prompt once the LLM provider lands. Registration
+still works and a new category still becomes filterable immediately — it just
+cannot become a *classification target* without someone regenerating the
+taxonomy and reviewing the diff. See `app/taxonomy.py`.
+
+**What the shipped classifier can do.** Measured by `scripts/measure_intent.py`:
+
+| query class | top-1 similarity to correct category |
+|---|---|
+| names a service (15 golden queries) | min **0.597** |
+| symptom-only + gibberish (13 queries) | max **0.563** |
+
+So `MIN_SIMILARITY = 0.58` fires on named-service queries and stays silent on
+symptom queries *and* gibberish — 3/3 negatives suppressed, 10/10 symptom
+queries correctly quiet. The bi-encoder cannot tell "my employees keep falling
+for scam emails" (0.543) from "asdfgh qwerty zxcvbn" (0.532); there is no
+threshold in that gap. That is the measured argument for the LLM provider,
+and why symptom queries are served by checked-in fixtures
+(`app/intent_fixtures.json`, always labelled `source: "fixture"`) until M6.2.
+
+**The LLM provider (M6.2).** `app/llm.py` is a ~150-line vendor-neutral client
+over `httpx` — Anthropic Messages and OpenAI-compatible Chat Completions,
+selected by `LLM_PROVIDER`. No vendor SDK, and `app/search.py` never sees it.
+The prompt hands the model the query plus `category_names()` and asks for one
+JSON object; the assistant turn is prefilled with `{` so the reply starts
+inside the object.
+
+Every category the model returns is re-checked with `is_known_category()` on
+the way back. A prompt instruction is not an access control — a model can emit
+any string it likes, so unknown categories are discarded, and a reply whose
+categories are *all* unknown yields no intent rather than a guess. Model-authored
+text that reaches the UI (`underlying_need`, `exclusions`) or retrieval
+(`expanded_query`) is collapsed to a single line and length-capped.
+
+Negation is handled explicitly: "I don't want WhatsApp bot companies" puts that
+in `exclusions` and **not** in `service_categories`, and an exclusion-only reply
+is still a valid intent.
+
+Failure is never fatal. Missing key, timeout, HTTP error, unparseable JSON,
+wrong types, missing fields, fully-hallucinated categories — all yield `None`,
+and under `INTENT_PROVIDER=auto` the chain continues to fixture then classifier.
+`INTENT_PROVIDER=llm` is strict and does **not** fall back, so a model outage is
+visible rather than silently downgraded. When a fallback does answer, the LLM
+failure is still reported as `llm_error` on `/health/intent`, because a healthy
+fallback masking a dead model is exactly the state an operator needs to see.
+
+**Query-conditional reranking.** `scripts/measure_rerank_policy.py`, both classes:
+
+| policy | symptom success@3 / P@5 (n=10) | named-service success@3 / P@5 (n=15) |
+|---|---|---|
+| `always` (pre-M6.1) | 0.300 / 0.280 | 0.800 / 0.573 |
+| `never` | 0.300 / 0.400 | **0.667** / 0.547 |
+| `intent-gated` (default) | 0.300 / **0.400** | **0.800** / **0.573** |
+
+`intent-gated` reranks only when the query *names its service*. It takes all of
+`never`'s symptom gain (P@5 +0.120, +42.9% relative) while matching `always`
+exactly on named-service queries. The middle row is why the situational finding
+alone never justified switching reranking off globally. In-sample caveat in
+`app/search.py`'s `RERANK_POLICY` comment.
+
+M6.2 changed **what that gate asks**, and this matters more than it looks. It
+used to test `intent.source == "embedding-taxonomy"` — the same question as
+"does this query name its service" only while the classifier was the only
+provider. The LLM answers symptom queries too, so under an LLM that test would
+have switched reranking ON for the class the cross-encoder damages and OFF for
+the class it helps. Measured, with LLM intents present:
+
+| gate | symptom reranked | named-service reranked |
+|---|---|---|
+| old (`intent.source`) | 0/10 | **0/15** ← named class silently drops to the `never` row |
+| new (`names_a_service()`) | 0/10 | 15/15 |
+
+Routing now asks `app.intent.names_a_service()`, which is the classifier's
+similarity gate regardless of which provider is displaying an intent. Re-measured
+under the shipped `INTENT_PROVIDER=auto`: the table above is unchanged.
+
+**Latency.** Skipping the cross-encoder on symptom queries is a large win:
+
+| query class | pre-M6.1 (rerank always) | shipped (intent-gated) |
+|---|---|---|
+| symptom-only | 250 ms | **69 ms** |
+| names a service | 221 ms | 234 ms |
+
+Symptom queries get ~3.6× faster because reranking is skipped; named-service
+queries pay ~13 ms for the routing embedding. An LLM call adds its own
+round-trip on top (`LLM_TIMEOUT_SECONDS`, default 6) and is not cached — see
+the notes below.
+
+**Environment variables.**
+
+| var | default | effect |
+|---|---|---|
+| `INTENT_PROVIDER` | `auto` | `auto` (llm → fixture → classifier), `llm` (strict), `embedding`, `fixture`, `off` |
+| `LLM_API_KEY` | *(unset)* | unset means no LLM; `auto` falls through, search unaffected |
+| `LLM_PROVIDER` | `anthropic` | `anthropic` \| `openai` |
+| `LLM_MODEL` | `claude-sonnet-5` | required explicitly when `LLM_PROVIDER=openai` |
+| `LLM_BASE_URL` | vendor default | override for a gateway / compatible server |
+| `LLM_TIMEOUT_SECONDS` | `6` | this call sits on the interactive search path |
+| `LLM_MAX_TOKENS` | `400` | |
+| `RERANK_POLICY` | `intent-gated` | `always`, `never`, `intent-gated` |
+| `RERANK_ENABLED` | `true` | kill switch; wins over `RERANK_POLICY` in every case |
+| `INTENT_EXPANSION_ENABLED` | `false` | use `expanded_query` for retrieval (unmeasured — see below) |
+
+`GET /health/intent` reports the layer's state and the active provider.
+Intent failure is never fatal: any error returns `intent: null` and the search
+proceeds normally.
+
+```bash
+uv run python scripts/build_taxonomy.py        # regenerate app/taxonomy.json
+uv run python scripts/measure_intent.py        # classifier accuracy + the gate
+uv run python scripts/measure_rerank_policy.py # policy comparison, both classes
+
+# The policy is a function of the intent provider, so re-measure per provider:
+INTENT_PROVIDER=llm uv run python scripts/measure_rerank_policy.py
+```
+
 ## Notes
 
+- **The LLM provider's accuracy is unmeasured.** It is implemented and every
+  code path is verified, but no `LLM_API_KEY` was available when it was built,
+  so there are no real numbers for how often it picks the right category on
+  symptom queries — the one thing it exists to do. `scripts/measure_intent.py`
+  and `scripts/measure_rerank_policy.py` both accept `INTENT_PROVIDER=llm`;
+  run them with a key before claiming anything about it. Until then the demo
+  panel for symptom queries is fixture-backed and labelled as such in the UI.
+- There is **no cache** on LLM intent, so identical queries pay the round-trip
+  every time. Deliberately out of scope here; an in-process LRU keyed on the
+  normalised query is the obvious next step if latency matters.
+- `INTENT_EXPANSION_ENABLED` defaults to `false` on purpose. The expansion is
+  built and returned, but its effect on ranking has not been measured, and the
+  one clean baseline that exists describes the un-expanded pipeline — turning
+  it on in the same change that added the intent panel would make the next
+  measurement uninterpretable.
 - Embedding dimensionality (384) is defined once in `app/constants.py`. The
   Atlas vector index's `numDimensions` in `scripts/atlas_indexes/vector_index.json`
   can't import that constant (it's plain JSON) — keep them in sync by hand if

@@ -10,6 +10,10 @@ dependencies = [
     "python-dotenv>=1.0",
     "openpyxl>=3.1",
     "sentence-transformers>=3.0",
+    # app/llm.py imports httpx directly (M6.2). It already arrives transitively
+    # via Starlette, but a direct import belongs in the direct dependencies --
+    # otherwise the intent layer breaks the day that transitive edge changes.
+    "httpx>=0.27",
 ]
 
 [build-system]

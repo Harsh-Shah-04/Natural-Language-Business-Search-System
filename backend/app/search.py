@@ -279,17 +279,47 @@ def _reciprocal_rank_fusion(
     return results
 
 
+def _match_stage(
+    active_filters: dict[str, str], exclude_categories: list[str] | None
+) -> dict:
+    """Combine positive filters with excluded categories into one $match.
+
+    Exclusion runs as a `$nin` on sub_category INSIDE the aggregation, not as a
+    post-filter on the returned page. A post-filter would silently return fewer
+    than `limit` results, and would be applied after the cross-encoder had
+    already spent its budget scoring documents destined for the bin.
+
+    If the caller both filtered on sub_category and excluded one, the two are
+    combined with $and rather than one overwriting the other -- if they
+    conflict, the correct answer is no results, not the wrong results.
+    """
+    if not exclude_categories:
+        return dict(active_filters)
+    excluded = {"sub_category": {"$nin": list(exclude_categories)}}
+    if "sub_category" in active_filters:
+        return {"$and": [dict(active_filters), excluded]}
+    return {**active_filters, **excluded}
+
+
 def search_businesses(
     query: str,
     limit: int,
     filters: dict[str, str | None] | None = None,
     rerank: bool | None = None,
+    exclude_categories: list[str] | None = None,
 ) -> list[dict]:
     """`rerank` defaults to the module-level RERANK_ENABLED flag when None.
     Overridable per call so scripts/eval.py can compare hybrid vs
     hybrid+rerank directly; the HTTP layer never passes it, so /api/search's
     behavior is exactly RERANK_ENABLED and its request/response contract is
-    unchanged."""
+    unchanged.
+
+    `exclude_categories` (M6.4) removes whole sub_categories from retrieval.
+    Values MUST already be resolved against the trusted taxonomy by the caller
+    (app.taxonomy.resolve_categories) -- this function does not validate them,
+    and free text must never reach it. Default None keeps every existing
+    caller, including scripts/eval.py, byte-identical.
+    """
     if rerank is None:
         rerank = RERANK_ENABLED
 
@@ -308,9 +338,14 @@ def search_businesses(
         # distinct from a validation failure (422).
         raise SearchUnavailableError(f"filter allow-list unavailable: {e}") from e
 
+    match_stage = _match_stage(active_filters, exclude_categories)
+
+    # Exclusions narrow the result set exactly the way filters do, and hit the
+    # same $vectorSearch truncation problem (the stage caps at `limit` before
+    # any $match can run), so they widen the pool for the same reason.
     pool_size = (
         POOL_SIZE_FILTERED
-        if active_filters
+        if match_stage
         else max(POOL_SIZE_DEFAULT, limit * POOL_SIZE_MULTIPLIER)
     )
 
@@ -322,10 +357,10 @@ def search_businesses(
         businesses = get_db()["businesses"]
         with ThreadPoolExecutor(max_workers=2) as executor:
             vector_future = executor.submit(
-                _vector_search, businesses, query_vector, pool_size, active_filters
+                _vector_search, businesses, query_vector, pool_size, match_stage
             )
             keyword_future = executor.submit(
-                _keyword_search, businesses, query, pool_size, active_filters
+                _keyword_search, businesses, query, pool_size, match_stage
             )
             vector_results = vector_future.result()
             keyword_results = keyword_future.result()
@@ -351,3 +386,205 @@ def search_businesses(
             pass
 
     return fused[:limit]
+
+
+# ---------------------------------------------------------------------------
+# M6.1: query understanding
+#
+# Everything above this line is unchanged. search_businesses() keeps its exact
+# behavior and signature, because scripts/eval.py and
+# scripts/measure_situational_baseline.py both call it directly and are the
+# only instruments available for judging whether any of this helps.
+# ---------------------------------------------------------------------------
+
+# Whether the inferred intent widens the RETRIEVAL query. On by default as of
+# M6.5, on the evidence below.
+#
+# WHAT THE EXPANSION IS BUILT FROM, AND WHY IT IS NOT THE MODEL'S PROSE
+# ---------------------------------------------------------------------
+# The intent carries two usable signals: `expanded_query`, which the model
+# writes freely, and `service_categories`, which it must choose from the closed
+# taxonomy. scripts/measure_intent_determinism.py ran the same query 20 times
+# at temperature=0 and separated them sharply -- categories agreed 0.80-1.00
+# and were correct in 20/20, while expanded_query produced 17-19 DISTINCT
+# strings out of 20. Scoring each distinct expansion through retrieval, the
+# reviewer's own query passed 10 times and failed 8. Free-form expansion is a
+# coin flip on the one query that matters most.
+#
+# So retrieval expands using the CATEGORIES' own vocabulary from
+# app/taxonomy.json instead: same intelligence (the LLM still chose the
+# categories), but the text is checked-in data, identical every time. The
+# model's expanded_query is still returned to the client for display; it just
+# does not steer retrieval.
+#
+# scripts/measure_intent_expansion.py, five arms, both query classes:
+#
+#   arm             symptom success@3   named success@3   reviewer query
+#   raw                       0.300           0.800            pass
+#   expanded (prose)          0.800           0.867            FAIL
+#   raw+expanded              0.800           1.000            FAIL
+#   taxonomy                  0.800           1.000            FAIL
+#   raw+taxonomy              0.900           1.000            pass   <- shipped
+#
+# raw+taxonomy is best on both suites and the only arm that keeps the reviewer
+# query. Concatenating the RAW query is what preserves specifics the category
+# vocabulary does not carry (a city, a product, a constraint), and it is why
+# this arm survives when the model adds a defensible-but-diluting second
+# category -- verified directly: rev-01 still scores success@3=1 with
+# categories ['Cybersecurity', 'Corporate Training'].
+INTENT_EXPANSION_ENABLED = os.environ.get(
+    "INTENT_EXPANSION_ENABLED", "true"
+).lower() in ("1", "true", "yes")
+
+# Query-conditional reranking policy.
+#
+#   intent-gated  rerank only when the intent CLASSIFIER recognised the query
+#                 (the default, on the measurement below).
+#   always        rerank every query -- what shipped before M6.1.
+#   never         never rerank.
+#
+# Why a policy is needed at all. The situational baseline measured the
+# cross-encoder as a net negative on symptom-only queries: P@5 0.244 with
+# reranking versus 0.378 without, a 35.3% relative decline, driven by cases
+# where it takes a correct rank-1 result and buries it (sit-02 1->6, sit-05
+# 1->5). M4.2 measured the opposite on the golden set. Both are true: the
+# golden set names its services and the situational set does not, and the
+# cross-encoder shares the bi-encoder's world-knowledge ceiling, so it cannot
+# score a symptom query against a service document any better than retrieval
+# already did.
+#
+# Why the switch can be the classifier. app/intent.py separates those two
+# classes on exactly the same axis: it fires on named-service queries
+# (similarity min 0.597) and stays silent on symptom queries and gibberish
+# (max 0.563). "The classifier recognised this query" is a usable proxy for
+# "reranking is likely to help here". It keys on the classifier alone -- a
+# fixture intent says nothing about whether a query names a service.
+#
+# Why it is the default -- scripts/measure_rerank_policy.py, both classes:
+#
+#                    symptom-only (n=10)        names a service (n=15)
+#   policy        success@3  recall@3   P@5   success@3  recall@3   P@5
+#   always            0.300     0.317  0.280      0.800     0.844  0.573
+#   never             0.300     0.350  0.400      0.667     0.778  0.547
+#   intent-gated      0.300     0.350  0.400      0.800     0.844  0.573
+#
+# intent-gated is strictly dominant: it takes the whole of "never"'s symptom
+# gain (P@5 +0.120, +42.9% relative) while matching "always" exactly on
+# named-service queries. Note also what the middle row rules out -- globally
+# disabling the reranker would have cost the named-service class 0.133
+# success@3, which is why the situational finding alone was never sufficient
+# grounds to switch it off.
+#
+# HONEST LIMIT. MIN_SIMILARITY was derived from these same 25 queries, so
+# "the classifier routes correctly" is in-sample and 15/15/10/10 is partly
+# guaranteed by construction. The per-class retrieval deltas are real
+# (they reduce to always-vs-never within each class), but routing accuracy on
+# unseen queries is unproven. The downside is bounded either way: a symptom
+# query misrouted to rerank performs exactly like the old default, and a
+# named-service query misrouted away from it loses at most what the "never"
+# row shows. Re-derive the threshold on held-out queries before trusting the
+# routing itself.
+RERANK_POLICY = os.environ.get("RERANK_POLICY", "intent-gated").strip().lower()
+
+
+def _should_rerank(query: str, intent) -> bool:
+    """Resolve RERANK_POLICY for one query.
+
+    RERANK_ENABLED still wins as a kill switch under every policy: an operator
+    who turned reranking off entirely must not have it turned back on by a
+    routing decision. Unknown policy values fall back to "always" rather than
+    failing a search.
+
+    M6.2 changed what "intent-gated" asks. It used to test
+    `intent.source == "embedding-taxonomy"`, which was the same question as
+    "does this query name its service" only while the classifier was the sole
+    provider. The LLM provider answers symptom queries too, so that test would
+    now switch reranking ON for exactly the class the cross-encoder was
+    measured to damage. It asks app.intent.names_a_service() instead, which is
+    the classifier's gate regardless of which provider is displaying an intent.
+    """
+    if not RERANK_ENABLED:
+        return False
+    if RERANK_POLICY == "never":
+        return False
+    if RERANK_POLICY == "intent-gated":
+        # Free when the classifier already answered for the display intent;
+        # one embedding plus 40 dot products otherwise.
+        if intent is not None and intent.source == "embedding-taxonomy":
+            return True
+        from app.intent import names_a_service
+
+        return names_a_service(query)
+    return True
+
+
+def search_with_intent(
+    query: str,
+    limit: int,
+    filters: dict[str, str | None] | None = None,
+):
+    """Infer intent, then search. Returns (intent | None, results).
+
+    The HTTP layer's entry point as of M6.1. Composed of two independent steps
+    rather than folded into search_businesses() so that:
+
+      - search_businesses() stays byte-identical in behavior, and the eval
+        scripts keep measuring the same thing they measured before;
+      - a failure in the intent layer costs the user a panel, never their
+        results (app.intent.infer_intent never raises, and this function does
+        not add a way for it to start).
+    """
+    from app.intent import infer_intent  # local: keeps import order simple
+    from app.taxonomy import (
+        get_categories,
+        is_known_category,
+        profile_text,
+        resolve_categories,
+    )
+
+    intent = infer_intent(query)
+
+    # The user's own words PLUS the inferred categories' taxonomy vocabulary.
+    # Not intent.expanded_query -- see INTENT_EXPANSION_ENABLED above for the
+    # determinism evidence behind that choice. Keeping the raw query in front
+    # preserves specifics the category vocabulary cannot carry.
+    retrieval_query = query
+    if INTENT_EXPANSION_ENABLED and intent is not None and intent.service_categories:
+        try:
+            categories = get_categories()
+            vocabulary = " ".join(
+                profile_text(categories[name])
+                for name in intent.service_categories
+                if is_known_category(name)
+            )
+            if vocabulary:
+                retrieval_query = f"{query} {vocabulary}"
+        except Exception:
+            # Expansion is an enhancement, never a dependency: fall back to the
+            # raw query rather than failing the search.
+            retrieval_query = query
+
+    # M6.4: the intent layer's exclusions become real retrieval filtering, but
+    # only after each one resolves to a name in the trusted taxonomy. A model
+    # can put any string in `exclusions`; resolve_categories() is the gate that
+    # decides which of them are allowed to remove anything, and it drops what
+    # it cannot map rather than guessing. An unmappable exclusion is therefore
+    # inert -- the user sees a result they did not want, which is strictly
+    # better than silently deleting a category on a bad match.
+    excluded: list[str] = []
+    if intent is not None and intent.exclusions:
+        try:
+            excluded = resolve_categories(intent.exclusions)
+        except Exception:
+            excluded = []  # taxonomy trouble must not cost the user their search
+
+    # Routing asks about the ORIGINAL query, not the expanded one: whether the
+    # user named their service is a property of what they typed.
+    results = search_businesses(
+        retrieval_query,
+        limit,
+        filters,
+        rerank=_should_rerank(query, intent),
+        exclude_categories=excluded or None,
+    )
+    return intent, results
