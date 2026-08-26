@@ -14,7 +14,12 @@ One-page guide to this take-home: **what each part does**, **which feature it su
 | **Semantic (vector) retrieval** | Match by meaning, not shared keywords | `embeddings.py` + Atlas `$vectorSearch` in `search.py` |
 | **Keyword retrieval** | Exact / near-term Lucene matches | Atlas `$search` in `search.py` + `scripts/atlas_indexes/search_index.json` |
 | **Hybrid fusion (RRF)** | Merge vector + keyword lists | `_reciprocal_rank_fusion()` in `search.py` |
-| **Cross-encoder rerank** | Rescore top candidates for precision | `reranker.py` (toggle: `RERANK_ENABLED`) |
+| **Cross-encoder rerank** | Rescore top candidates for precision | `reranker.py` (toggle: `RERANK_ENABLED`, policy: `RERANK_POLICY`) |
+| **Query understanding** | Describe a situation → system infers the service need | `intent.py`, `llm.py`, `taxonomy.py` |
+| **Visible reasoning** | *"I understood you need…"* panel with provenance | `IntentPanel.tsx`, `intent` field in `schemas.py` |
+| **Negation / exclusions** | *"I don't want X"* removes that category from results | `taxonomy.resolve_categories()` → `$nin` in `search.py` |
+| **Intent-aware expansion** | Symptom wording widened with taxonomy vocabulary | `search_with_intent()` in `search.py` |
+| **Intent cache** | Repeat queries answer instantly and identically | `_cache_get/_cache_put` in `intent.py` |
 | **Filters** | Industry / City / State / Nature / Sub Category | `filters.py`, `FilterPanel.tsx` |
 | **Business registration** | Add a business → immediately searchable | `registration.py`, `RegisterPage.tsx` |
 | **Exact name lookup** | Find a business by its registered name | `business_name` in embed text + keyword paths + Atlas mapping |
@@ -51,7 +56,12 @@ Intern_assignment/
 | `db.py` | MongoDB client singleton | Shared DB access |
 | `constants.py` | Model names + embedding dims | Single source for ML config |
 | `embeddings.py` | Load BGE bi-encoder; `build_embedding_text`; `embed_texts` | Semantic search + registration embeddings |
-| `search.py` | Hybrid search pipeline (vector ∥ keyword → RRF → optional rerank) | Core ranking feature |
+| `search.py` | Hybrid pipeline (vector ∥ keyword → RRF → conditional rerank) + `search_with_intent()` | Core ranking; exclusions; expansion |
+| `intent.py` | `QueryIntent` + provider chain (llm → fixture → classifier) + cache | Query understanding |
+| `llm.py` | Vendor-neutral chat client over `httpx` (Anthropic / OpenAI-compatible) | LLM access, no SDK |
+| `taxonomy.py` | Trusted 40-category taxonomy; `is_known_category()`, `resolve_categories()` | Security gate + exclusion mapping |
+| `taxonomy.json` | Generated from the seed dataset — **never** from the DB | Prompt-injection boundary |
+| `intent_fixtures.json` | Checked-in demo intents, always labelled `source: fixture` | Offline demo path |
 | `reranker.py` | Cross-encoder load + `rerank_candidates` | Precision boost after fusion |
 | `filters.py` | Cached allow-list; validate filter values | Safe, dynamic filters |
 | `registration.py` | Embed + insert new business; invalidate filter cache | Registration → searchable |
@@ -63,6 +73,7 @@ Intern_assignment/
 | `GET` | `/health` | Process up |
 | `GET` | `/health/model` | Embedder status |
 | `GET` | `/health/reranker` | Reranker status |
+| `GET` | `/health/intent` | Intent layer state, active provider, `llm_error` |
 | `GET` | `/api/filters/values` | Dropdown options |
 | `POST` | `/api/search` | Hybrid search |
 | `POST` | `/api/businesses` | Register business |
@@ -135,7 +146,6 @@ Intern_assignment/
 | `ResultsList.tsx` / `ResultCard.tsx` | Result cards, scores, matched_via |
 | `StatusMessage.tsx` | Empty / loading / error messages |
 | `FormField.tsx` | Text / textarea / select for registration |
-| `utils/highlight.tsx` | Highlight query terms in results |
 
 ### Frontend config
 
