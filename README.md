@@ -678,6 +678,35 @@ Same status values and `detail` behaviour as `/health/model`.
 
 ---
 
+### `GET /health/intent`
+
+State of the **query-understanding layer** and which provider is actually
+answering. Independent of the other two for the same reason they are independent
+of each other: search works with this layer down — results are unaffected, only
+the explanation disappears — so its state must be observable without being fatal.
+
+```bash
+curl http://127.0.0.1:8000/health/intent
+```
+
+```json
+{ "status": "ready", "provider": "auto" }
+```
+
+| Field | Meaning |
+|---|---|
+| `status` | `not_started` → `loading` → `ready`, or `error` / `disabled`. |
+| `provider` | The configured `INTENT_PROVIDER`. |
+| `detail` | Present on `error` / `disabled` — e.g. `"LLM_API_KEY is not set"`. |
+| `llm_error` | **Present even when `status` is `ready`.** Under `auto`, a healthy fallback masks a dead model; this is how you see that you are paying for an LLM that is not answering. |
+
+**Check this first if the UI looks wrong.** `{"status":"disabled","detail":"LLM_API_KEY is not set"}`
+means the browser is being served by the embedding classifier, not the LLM — the
+intent panel will still appear, but labelled `matched against the service
+taxonomy` rather than showing real inference.
+
+---
+
 ## Screenshots
 
 Screenshots are **not yet captured**. The placeholders below are the intended
@@ -854,6 +883,29 @@ not reranking.
 > expect your own absolute figures and compare rerank-on against rerank-off on
 > the *same* machine in the *same* session.
 
+**Query-conditional reranking made symptom queries much faster**, because those
+are exactly the queries that now skip the cross-encoder:
+
+| Query class | Before (rerank always) | After (`intent-gated`) |
+|---|---|---|
+| Symptom-only | ~250ms | **~69ms** |
+| Names a service | ~221ms | ~234ms |
+
+Symptom queries get roughly **3.6× faster** — skipping the cross-encoder more
+than pays for the ~13ms routing embedding that decides whether to skip it.
+
+**Intent layer**
+
+| Path | Latency |
+|---|---|
+| Embedding classifier | ~10ms |
+| LLM, cold (DeepSeek `deepseek-v4-flash`) | **p50 ~2.5s, max ~9s** |
+| LLM, cache hit | **~0ms** |
+
+The LLM call dominates everything else in the pipeline by an order of magnitude,
+which is why the intent cache exists. It is also why the layer is optional: with
+no `LLM_API_KEY`, the classifier answers in ~10ms and search is unaffected.
+
 **Filtering** is effectively free at this corpus size: unfiltered p50 ~72ms,
 filtered-by-city ~68ms, filtered-by-two-fields ~67ms.
 
@@ -905,11 +957,24 @@ Not yet deployed; this is the intended path.
 
 ## Future improvements
 
+- **Retry an unusable LLM response.** The model occasionally returns nothing the
+  validator can use, and the intent panel disappears on a query it should handle.
+  The chain degrades safely — results are unaffected — but one retry would close
+  the most visible rough edge in the system.
+- **Replace the secondary-category margin.** `SECONDARY_MARGIN` has now admitted
+  a wrong second category three times (gaps 0.0493, 0.0432, 0.0381 — all lexical
+  collisions like "ai agent" ≈ "PR Agencies"). Tightening the number each time is
+  treating the symptom; the fixed-margin *shape* is probably the wrong mechanism.
+- **Held-out evaluation queries.** The classifier's similarity gate was derived
+  from the same queries it is scored on, so its routing accuracy is in-sample.
+  Until queries exist that neither the author nor the tuning process wrote, the
+  honest claim is "measured on this set", not "works".
 - **Fix the residual ranking collision.** A query token that matches a business's
   own discriminative field in a *different sense* (the word "business" in
   "business trip" vs "business insurance") still misleads keyword retrieval when
-  it's the only hit. Reranking recovers most of these; query-side sense
-  disambiguation would attack the cause.
+  it's the only hit. Reranking recovers most of these, and the intent layer's
+  taxonomy expansion helps further by adding service vocabulary the collision
+  does not share — but neither attacks the cause directly.
 - **Filter at the index, not after it.** `$vectorSearch` truncates internally
   before `$match`, so filtered searches over-fetch (pool widened to 200). At a
   larger corpus this needs Atlas native filter fields that pre-filter before the
