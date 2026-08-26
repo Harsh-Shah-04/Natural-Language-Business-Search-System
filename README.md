@@ -1,12 +1,15 @@
 # Natural Language Business Search System
 
-Semantic search over a business directory. Ask in plain English — *"eco-friendly
-packaging for restaurants"*, *"someone who can defend us against computer
-hacking"* — and get ranked, relevant businesses back, not keyword soup.
+Contextual search over a business directory. Describe a **situation** in plain
+English — *"my employees keep clicking suspicious links"*, *"I don't want
+cybersecurity companies, I need someone to train my staff"* — and the system works
+out what you actually need, tells you what it understood, and ranks businesses
+that solve it.
 
 Built as an AI Engineer take-home. The interesting part is not that it returns
 results; it's that **every ranking decision is backed by a measured evaluation**,
-including the ones that didn't work.
+including the ones that didn't work — and several that looked right and were
+then disproved.
 
 ---
 
@@ -45,11 +48,19 @@ Keyword search fails the way users actually type:
   insurance company.
 - **Structured filters still matter.** "Manufacturers in Pune" is a legitimate
   narrowing that pure semantics shouldn't throw away.
+- **Symptoms, not services.** *"my employees keep clicking suspicious links"*
+  names no service at all. Embeddings cannot bridge that on their own: measured
+  on this corpus, a bi-encoder scores that query 0.543 against the correct
+  category and scores literal gibberish 0.532. There is no threshold in that gap.
+- **Negation.** *"I don't want cybersecurity companies"* embeds at cosine
+  **0.945** to the same sentence without the "don't" — and adds the word
+  *cybersecurity*, actively pulling in what the user just rejected. Vector search
+  has no way to represent "not".
 
 So the system needs semantic understanding *and* exact-term recall *and*
-structured filtering, without any one of them wrecking the others. The whole
-project is an exercise in proving which combination actually ranks best rather
-than assuming.
+structured filtering *and* an explicit layer that decides what the user actually
+meant — without any one of them wrecking the others. The whole project is an
+exercise in proving which combination actually ranks best rather than assuming.
 
 ---
 
@@ -62,9 +73,15 @@ than assuming.
 | **Tuned hybrid** | Score-threshold gating on weak keyword hits, weighted RRF favouring semantics, keyword search narrowed to discriminative fields. |
 | **Cross-encoder reranking** | Rescores the fused top-20 by full (query, document) attention. Toggle-able; ships on because the eval says it earns its place. |
 | **Dynamic filters** | Industry / City / State / Nature / Sub Category, validated against a live allow-list derived from the DB (also closes a NoSQL-injection-shaped gap). |
-| **Evaluation framework** | 30 golden queries across 6 categories, scored with Precision@K, Recall@K, MRR. Every ranking change is gated on it. |
+| **Query understanding** | An LLM constrained to a closed 40-category taxonomy turns a described situation into structured intent — need, categories, exclusions — *before* retrieval runs. Swappable provider; falls back to an embedding classifier, then to nothing. |
+| **Visible reasoning** | The UI shows *"I understood you need…"* with the inferred categories and the provenance of that inference, so a correct result is distinguishable from a lucky match. |
+| **Negation / exclusions** | *"I don't want cybersecurity companies"* removes that whole category from results. The exclusion is mapped through the trusted taxonomy first — never substring-matched against business text. |
+| **Intent-aware expansion** | Retrieval widens the query with the inferred categories' **taxonomy vocabulary**, not the model's free-text prose — the prose is measurably unstable (see below). |
+| **Query-conditional reranking** | The cross-encoder runs only on queries that name their service, because it was measured to *hurt* symptom queries. |
+| **Intent cache** | In-process, TTL + LRU bounded. 2216 ms → 0 ms on repeat, and it pins a stochastic model to one answer per query. |
+| **Evaluation framework** | 30 golden queries across 6 categories, plus situational, determinism, expansion and contextual suites. Every ranking change is gated on it. |
 | **Business registration** | `POST /api/businesses` embeds and stores a new business so it's searchable immediately, through the same pipeline. |
-| **React interface** | Search with keyword highlighting, filters, registration form, and full loading / empty / error states. |
+| **React interface** | Intent panel, filters, registration form, and full loading / empty / error states. Deliberately **no** query-term highlighting — see [Why there is no keyword highlighting](#why-there-is-no-keyword-highlighting). |
 
 ---
 
@@ -78,7 +95,13 @@ management.
 [`BAAI/bge-small-en-v1.5`](https://huggingface.co/BAAI/bge-small-en-v1.5) as the
 bi-encoder embedder (384-dim, L2-normalized) and
 [`cross-encoder/ms-marco-MiniLM-L-6-v2`](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2)
-as the reranker. Both run locally on CPU, no API keys, no per-query cost.
+as the reranker. Both run locally on CPU, no API key, no per-query cost.
+
+**Query understanding** — an LLM constrained to a closed taxonomy, reached
+through a ~150-line vendor-neutral `httpx` client (Anthropic Messages or any
+OpenAI-compatible endpoint; verified against DeepSeek by configuration alone).
+Entirely **optional**: with no key set, the system falls back to an embedding
+classifier and search is unaffected.
 
 **Frontend** — React 19, TypeScript, Vite. No UI kit, no state library, no HTTP
 client — `fetch` and plain CSS keep the dependency surface minimal.
@@ -92,25 +115,54 @@ flowchart TD
     U([User]) --> FE["React Frontend<br/>Vite + TypeScript"]
     FE -->|"POST /api/search"| API["FastAPI Backend"]
 
-    API --> EMB["Embedding Model<br/>bge-small-en-v1.5<br/>384-dim, normalized"]
+    API --> INT["Query Understanding<br/>llm → fixture → classifier"]
+    INT --> CACHE[("Intent cache<br/>TTL + LRU")]
+    INT --> TAX["Trusted taxonomy<br/>40 categories, from the seed file"]
+    TAX -->|"is_known_category()"| INT
+
+    INT -->|"exclusions → resolve_categories()"| EXC["$nin sub_category"]
+    INT -->|"categories → taxonomy vocabulary"| QX["raw query + vocabulary"]
+
+    QX --> EMB["Embedding Model<br/>bge-small-en-v1.5<br/>384-dim, normalized"]
     API --> FIL["Filter allow-list<br/>validated, cached"]
 
     EMB --> VS["Atlas Vector Search<br/>$vectorSearch (cosine)"]
+    QX --> KS["Atlas Keyword Search<br/>$search (Lucene)"]
     FIL -.->|"optional $match"| VS
-    API --> KS["Atlas Keyword Search<br/>$search (Lucene)"]
     FIL -.->|"optional $match"| KS
+    EXC -.->|"$match"| VS
+    EXC -.->|"$match"| KS
 
     VS --> RRF["Weighted RRF<br/>vector 0.7 / keyword 0.3"]
     KS --> RRF
-    RRF --> CE["Cross-Encoder Rerank<br/>ms-marco-MiniLM-L-6-v2<br/>top-20"]
+    RRF --> GATE{"names a service?"}
+    GATE -->|yes| CE["Cross-Encoder Rerank<br/>ms-marco-MiniLM-L-6-v2<br/>top-20"]
+    GATE -->|no| RES
     CE --> RES(["Ranked Results"])
     RES --> FE
+    INT -.->|"intent panel"| FE
 ```
 
 Vector search and keyword search run **concurrently** (a two-worker
 `ThreadPoolExecutor`), not in sequence — both feed the fusion stage. Reranking is
 a strictly additive stage after fusion; if the cross-encoder fails to load or
 infer, search degrades to un-reranked hybrid results rather than erroring.
+
+The intent layer is **additive in exactly the same way**. Any failure — no API
+key, timeout, unparseable JSON, a category outside the taxonomy — returns no
+intent, and search proceeds as it did before the layer existed. It can cost the
+user their explanation; it can never cost them their results.
+
+Two trust boundaries are worth naming, because they are the difference between a
+feature and a vulnerability:
+
+- **The taxonomy is generated from the checked-in seed dataset, never from the
+  database.** `POST /api/businesses` is unauthenticated and `sub_category` is
+  free text, so a collection-derived taxonomy would let any stranger place text
+  inside every user's LLM prompt.
+- **Every category the model returns is re-checked** with `is_known_category()`.
+  A prompt instruction is not an access control — a model can emit any string,
+  and unknown ones are discarded.
 
 **Registration write path:**
 
@@ -127,15 +179,29 @@ flowchart LR
 
 ## Search pipeline
 
-1. **Embed the query.** `bge-small-en-v1.5` encodes it to a 384-dim L2-normalized
-   vector. The document side was embedded at ingest from
+1. **Understand the query.** An LLM constrained to the closed 40-category
+   taxonomy returns structured intent: `underlying_need`, `service_categories`,
+   `exclusions`, `confidence`. Cached per normalised query. If it is
+   unconfigured or fails, an embedding classifier answers instead — and if that
+   is not confident either, the pipeline simply continues without intent.
+2. **Resolve exclusions.** Each exclusion string is mapped onto a trusted
+   category by `app/taxonomy.resolve_categories()`, matching **only** against
+   taxonomy names. `"cybersecurity companies"` → `Cybersecurity`;
+   `"WhatsApp bot companies"` maps to nothing and therefore filters nothing.
+   Resolved categories become a `$nin` on `sub_category` inside the aggregation.
+3. **Expand the query.** The user's raw words plus the inferred categories'
+   **taxonomy vocabulary** — checked-in text, not the model's prose. This is the
+   symptom-to-service bridge, and keeping the raw query in front preserves
+   specifics the vocabulary cannot carry.
+4. **Embed.** `bge-small-en-v1.5` encodes the expanded query to a 384-dim
+   L2-normalized vector. The document side was embedded at ingest from
    `business_description + products_services + keywords + specialties +
    sub_category` — contact fields are excluded because they carry no semantic
    signal.
-2. **Validate filters.** Any supplied filter value is checked against a live
+5. **Validate filters.** Any supplied filter value is checked against a live
    allow-list of actual DB values. Anything outside it is rejected with `422`,
    never passed through as a raw query clause.
-3. **Retrieve, concurrently.**
+6. **Retrieve, concurrently.**
    - `$vectorSearch` over the `embedding` field (cosine).
    - `$search` over `keywords`, `specialties`, `products_services` — deliberately
      narrowed; `business_description` carries templated boilerplate that produced
@@ -143,20 +209,35 @@ flowchart LR
    - Weak keyword hits are dropped before fusion (must score ≥30% of the query's
      own top keyword score — Atlas `searchScore` has no fixed cross-query scale,
      so the threshold is relative).
-4. **Fuse with weighted RRF.** `score = Σ weight / (60 + rank)`, with vector
+7. **Fuse with weighted RRF.** `score = Σ weight / (60 + rank)`, with vector
    weighted `0.7` and keyword `0.3`. Rank-based fusion is scale-free, which is
    why it can combine two incomparable scoring systems at all. Results are tagged
    `matched_via`: `semantic`, `keyword`, or `both`.
-5. **Rerank the top 20.** The cross-encoder scores each `(query, document)` pair
-   with full attention, so it judges relevance directly instead of by vector
-   distance. Fusion deliberately returns a *wider* pool than the requested limit
-   so a candidate ranked #15 can climb into the top 10.
-6. **Return the top N.**
+8. **Rerank — but only if the query names its service.** The cross-encoder scores
+   each `(query, document)` pair with full attention, and fusion deliberately
+   returns a *wider* pool than the requested limit so a candidate ranked #15 can
+   climb into the top 10. It runs **conditionally**: measured on symptom-only
+   queries it was a net *negative* (P@5 0.244 with reranking vs 0.378 without),
+   because it shares the bi-encoder's world-knowledge ceiling. The switch is the
+   classifier's own similarity gate, which separates the two query classes.
+9. **Return the top N**, plus the intent for display.
 
 **Why each stage exists** is documented with the evaluation that justified it —
 see [Evaluation results](#evaluation-results). The short version: hybrid alone
-scored *worse* than vector-only, tuning recovered about half the gap, and
-reranking closed the rest.
+scored *worse* than vector-only, tuning recovered about half the gap, reranking
+closed the rest, and the intent layer is what finally moved symptom queries.
+
+### Why there is no keyword highlighting
+
+The UI used to mark query terms in yellow. It was removed, not restyled. The
+highlighting matched the **raw query literally**, independent of how a result was
+retrieved — so a document found purely by vector similarity still showed literal
+term marks next to a "Semantic" badge. On this corpus the effect was actively
+misleading: the descriptions are templated, so a query containing the word
+*business* marked it in **120 of 120** documents — the least discriminative word
+in the dataset, painted onto every result. `matched_via` is the honest signal for
+how something matched, and it comes from the retrieval layer rather than from
+string matching in the browser.
 
 ---
 
@@ -201,9 +282,8 @@ reranking closed the rest.
         ├── api/                  # HTTP client + typed endpoint functions
         ├── types/                # API contract types (mirror schemas.py)
         ├── hooks/                # useSearch, useFilterOptions, useRegistrationForm
-        ├── components/           # SearchBar, FilterPanel, ResultCard, ...
+        ├── components/           # SearchBar, FilterPanel, IntentPanel, ResultCard, ...
         ├── pages/                # SearchPage, RegisterPage
-        ├── utils/highlight.tsx   # XSS-safe keyword highlighting
         ├── App.tsx               # shell: nav + view switch
         └── index.css             # single organized stylesheet
 ```
@@ -252,7 +332,38 @@ npm install
 | `MONGODB_URI` | **yes** | — | Atlas connection string. Never commit this. |
 | `DB_NAME` | no | `business_search` | Database name. |
 | `CORS_ALLOW_ORIGINS` | no | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated allow-list of frontend origins. |
-| `RERANK_ENABLED` | no | `true` | Set `false` to disable cross-encoder reranking (faster, slightly less precise). |
+| `RERANK_ENABLED` | no | `true` | Kill switch for cross-encoder reranking. Wins over `RERANK_POLICY`. |
+| `RERANK_POLICY` | no | `intent-gated` | `intent-gated` \| `always` \| `never`. See [Evaluation results](#evaluation-results). |
+| `INTENT_PROVIDER` | no | `auto` | `auto` (llm → fixture → classifier), `llm` (strict, no fallback), `embedding`, `fixture`, `off`. |
+| `INTENT_EXPANSION_ENABLED` | no | `true` | Widen retrieval with the inferred categories' taxonomy vocabulary. |
+| `INTENT_CACHE_SIZE` | no | `512` | LRU bound on cached intents. |
+| `INTENT_CACHE_TTL_SECONDS` | no | `3600` | TTL for a cached intent. |
+
+**LLM provider** — all optional. Leave `LLM_API_KEY` unset and the system runs
+without an LLM: `auto` falls through to the classifier and search is unaffected.
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `LLM_API_KEY` | no | — | **Never commit this.** Absent = no LLM, not an error. |
+| `LLM_PROVIDER` | no | `anthropic` | `anthropic` (Messages API) or `openai` (Chat Completions — also works for any OpenAI-compatible endpoint). |
+| `LLM_MODEL` | no | a current Claude model | Required explicitly when `LLM_PROVIDER=openai`. |
+| `LLM_BASE_URL` | no | vendor default | Override for a gateway or compatible server. |
+| `LLM_TIMEOUT_SECONDS` | no | `6` | This call sits on the interactive search path. |
+| `LLM_MAX_TOKENS` | no | `400` | **Raise to ~1500 for reasoning models** — they spend the budget on reasoning tokens and return empty content otherwise. |
+
+Verified against DeepSeek by configuration alone, no code change:
+
+```bash
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.deepseek.com
+LLM_MODEL=deepseek-v4-flash
+LLM_MAX_TOKENS=1500
+LLM_TIMEOUT_SECONDS=45
+LLM_API_KEY=sk-...
+```
+
+`GET /health/intent` reports the layer's state, the active provider, and an
+`llm_error` field if a fallback is masking a dead model.
 
 **`frontend/.env.local`**
 
@@ -366,8 +477,44 @@ curl -X POST http://127.0.0.1:8000/api/search \
       "matched_via": "both"
     }
   ],
-  "filters": {"state": "Maharashtra", "industry": null, "city": null, "nature": null, "sub_category": null}
+  "filters": {"state": "Maharashtra", "industry": null, "city": null, "nature": null, "sub_category": null},
+  "intent": {
+    "underlying_need": "eco friendly takeaway packaging",
+    "service_categories": ["Food Packaging"],
+    "expanded_query": "sustainable food packaging restaurant supplies",
+    "exclusions": [],
+    "confidence": 0.9,
+    "source": "llm"
+  }
 }
+```
+
+**The `intent` field** (nullable) is what the system understood the query to
+mean. `null` means the layer had no opinion it was prepared to stand behind, and
+the UI shows no panel rather than a guess.
+
+| Field | Meaning |
+|---|---|
+| `underlying_need` | The inferred service need, for display. Empty on a pure-negation query — nothing is invented to fill it. |
+| `service_categories` | Always values from the **trusted taxonomy**. Never free text, never sourced from the database. |
+| `expanded_query` | The model's own phrasing, returned for transparency. **Not** what retrieval uses — see the pipeline section. |
+| `exclusions` | What the user asked to avoid. Removes a category from results only if it resolves to a trusted taxonomy name. |
+| `confidence` | Provider-reported. **Not calibrated** — treat it as a hint, not a probability. |
+| `source` | `llm`, `embedding-taxonomy`, or `fixture`. Exposed so a client can show where the understanding came from. |
+
+**Negation example**
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "I don'\''t want cybersecurity companies. I need someone to train my employees so they don'\''t fall for scams.", "limit": 10}'
+```
+
+```
+intent.include    : ["Corporate Training"]
+intent.exclusions : ["cybersecurity companies"]  →  resolves to Cybersecurity
+results 1-2-3     : Corporate Training
+Cybersecurity in all 10 : false
 ```
 
 `score` is the cross-encoder relevance logit when reranking is on (it can be
@@ -539,7 +686,7 @@ set; capture instructions follow.
 | View | Placeholder |
 |---|---|
 | Search page (idle state) | `docs/screenshots/search-page.png` |
-| Search results with keyword highlighting | `docs/screenshots/search-results.png` |
+| Search results with the intent panel | `docs/screenshots/search-results.png` |
 | Filters applied | `docs/screenshots/filters.png` |
 | Registration page | `docs/screenshots/registration.png` |
 | Responsive mobile view | `docs/screenshots/responsive-mobile.png` |
@@ -549,8 +696,9 @@ set; capture instructions follow.
 1. Start the backend (`uv run uvicorn app.main:app --reload`) and the frontend
    (`npm run dev`), then open `http://localhost:5173`.
 2. **Search page** — capture the idle state before searching.
-3. **Search results** — search `eco friendly packaging for restaurants`; the
-   matched terms render highlighted inside the cards.
+3. **Search results** — search a situational query such as `my employees keep
+   clicking suspicious links`; capture the *"I understood you need…"* panel above
+   the cards along with the results it produced.
 4. **Filters** — with results on screen, set *State* to a real value and capture
    the narrowed result set.
 5. **Registration** — switch to the Register tab; capture the grouped form
@@ -601,6 +749,80 @@ reranked pipeline (0.929). The win is getting keyword-exact recall *and* semanti
 precision together; on a messier corpus that's where the combination would pull
 clearly ahead. Reranking ships enabled because it measurably improves precision@5
 over the best non-reranked system, which was the pre-registered bar.
+
+### The golden set could not measure contextual search
+
+`scripts/compute_metric_ceiling.py`. `precision_at_k` divides by `k=5` while most
+golden queries have 3 relevant documents, so **max P@5 on this set is 0.5733**.
+Hybrid+rerank scores 0.560 — **97.7% of the mathematical ceiling**, with `R@10`
+already 1.000. Any A/B run on it measures noise.
+
+So a second benchmark exists: **situational queries** that describe a problem
+without naming a service. Headline metric is **success@3** (did every relevant
+business that could fit in the top 3 land there), which has real headroom.
+
+### Contextual search: what each stage actually bought
+
+`scripts/measure_intent_expansion.py`, both query classes, same intents:
+
+| Retrieval query | symptom success@3 (n=10) | names-a-service success@3 (n=15) | reviewer query |
+|---|---|---|---|
+| Raw query (pre-intent) | 0.300 | 0.800 | pass |
+| LLM `expanded_query` (prose) | 0.800 | 0.867 | **FAIL** |
+| Raw + LLM prose | 0.800 | 1.000 | **FAIL** |
+| Taxonomy vocabulary only | 0.800 | 1.000 | **FAIL** |
+| **Raw + taxonomy vocabulary** ← ships | **0.900** | **1.000** | **pass** |
+
+**Symptom queries went 0.300 → 0.900 while named-service queries went to a
+perfect 1.000.** No trade-off between the two classes.
+
+### Why retrieval does not use the model's own expansion
+
+`scripts/measure_intent_determinism.py` — 5 queries × 20 identical calls at
+`temperature=0` (verified as the existing setting, not assumed):
+
+| Signal | Agreement across 20 identical calls |
+|---|---|
+| `service_categories` (closed set) | **0.80–1.00**, correct **20/20**, **0 hallucinated** |
+| `expanded_query` (free prose) | **17–19 distinct strings out of 20** |
+
+Scoring each distinct expansion through retrieval, the reviewer's own query
+**passed 10 times and failed 8**. The constrained signal is reliable; the
+generated prose is a coin flip. So retrieval expands from the taxonomy, and the
+prose is display-only.
+
+### Query-conditional reranking
+
+`scripts/measure_rerank_policy.py` — the cross-encoder helps one query class and
+hurts the other:
+
+| Policy | symptom P@5 | names-a-service success@3 |
+|---|---|---|
+| `always` | 0.280 | 0.800 |
+| `never` | 0.400 | **0.667** |
+| **`intent-gated`** ← ships | **0.400** | **0.800** |
+
+`intent-gated` is strictly dominant. The middle row is why the symptom finding
+alone never justified switching reranking off globally — and why BM25 was kept:
+measured separately, the keyword arm is neutral on raw symptom queries and
+**adds +0.111 success@3** after expansion.
+
+### Contextual suite — `scripts/test_contextual_search.py`
+
+| Case | Expected | Result |
+|---|---|---|
+| Positive: *"I want cybersecurity companies…"* | Cybersecurity allowed | ✅ ranks 1-2-3 |
+| Negation: *"I don't want cybersecurity companies. I need someone to train my employees…"* | Corporate Training in, Cybersecurity **out** | ✅ |
+| Unmappable negation: *"I don't want WhatsApp bot companies"* | must not over-filter | ✅ nothing filtered |
+| Keyword: *"I need help filing GST returns"* | GST Consultants | ✅ ranks 1-2-3 |
+| Symptom: *"My website keeps crashing whenever lots of customers visit"* | Cloud Services | ✅ ranks 1-2-3 |
+
+**Honest limits.** n=10 situational and n=15 named-service, with labels authored
+alongside the queries — the reviewer's query is the only genuinely held-out case.
+The classifier's similarity gate was derived from these same queries, so its
+routing accuracy is in-sample. And the LLM occasionally returns nothing usable, in
+which case the panel disappears; the chain degrades safely, but it is a visible
+rough edge.
 
 ---
 

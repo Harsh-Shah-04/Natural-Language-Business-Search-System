@@ -1,4 +1,4 @@
-# Backend — M1.1-M1.3 + M2 + M3.1 + M3.2 + M4.1 + M4.1.1 + M4.2 (Atlas, ingestion, embeddings, reranked hybrid search, evaluation)
+# Backend — M1-M6 (Atlas, ingestion, embeddings, contextual intent, reranked hybrid search, evaluation)
 
 **M1.1** proved the MongoDB Atlas index configuration works before any real
 data or ML code depends on it. **M1.2** added raw ingestion of the actual
@@ -19,7 +19,12 @@ it ships enabled, on that evidence, per design-doc-v2.md's evidence-gating
 rule. Same API, same filters, same eval framework throughout. **M5.2** adds
 business registration (`POST /api/businesses`), which reuses this embedding
 pipeline so a registered business is immediately searchable — see "Business
-registration" below. The React frontend lives in `../frontend`.
+registration" below. **M6** adds the query-understanding layer: an LLM
+constrained to a trusted 40-category taxonomy turns a described situation into
+structured intent before retrieval runs (M6.1/M6.2), exclusions become real
+retrieval filtering (M6.4), retrieval expands from the taxonomy rather than the
+model's prose, and intents are cached (M6.5) — each gated on its own
+measurement, all documented below. The React frontend lives in `../frontend`.
 
 ## Setup
 
@@ -616,19 +621,67 @@ the notes below.
 | `LLM_MODEL` | `claude-sonnet-5` | required explicitly when `LLM_PROVIDER=openai` |
 | `LLM_BASE_URL` | vendor default | override for a gateway / compatible server |
 | `LLM_TIMEOUT_SECONDS` | `6` | this call sits on the interactive search path |
-| `LLM_MAX_TOKENS` | `400` | |
+| `LLM_MAX_TOKENS` | `400` | **raise to ~1500 for reasoning models** — see Notes |
 | `RERANK_POLICY` | `intent-gated` | `always`, `never`, `intent-gated` |
 | `RERANK_ENABLED` | `true` | kill switch; wins over `RERANK_POLICY` in every case |
-| `INTENT_EXPANSION_ENABLED` | `false` | use `expanded_query` for retrieval (unmeasured — see below) |
+| `INTENT_EXPANSION_ENABLED` | `true` | widen retrieval with the categories' taxonomy vocabulary |
+| `INTENT_CACHE_SIZE` | `512` | LRU bound on cached LLM intents |
+| `INTENT_CACHE_TTL_SECONDS` | `3600` | TTL for a cached intent |
 
 `GET /health/intent` reports the layer's state and the active provider.
 Intent failure is never fatal: any error returns `intent: null` and the search
 proceeds normally.
 
+## Negation / exclusions (M6.4)
+
+*"I don't want cybersecurity companies. I need someone to train my employees so
+they don't fall for scams."* removes that whole category from the results:
+
+```
+intent.include    : ["Corporate Training"]
+intent.exclusions : ["cybersecurity companies"]
+  -> app.taxonomy.resolve_categories() -> ["Cybersecurity"]
+  -> $match {"sub_category": {"$nin": ["Cybersecurity"]}}
+results 1-2-3     : Corporate Training      Cybersecurity in all 10: false
+```
+
+`resolve_category()` matches free text **only against trusted taxonomy names** —
+never as a substring of business text, so "cybersecurity" appearing in some
+company's description can never trigger filtering. Exact match wins; otherwise
+the taxonomy name must appear as a whole phrase; ambiguity resolves to the
+longest name. Anything unmappable (`"WhatsApp bot companies"`) resolves to
+nothing and filters nothing.
+
+That direction is deliberate. A missed mapping shows a result the user did not
+want — annoying. A wrong mapping silently deletes an entire category — much
+worse, and invisible.
+
+Exclusions run as `$nin` inside the aggregation, sharing the pool-widening that
+already existed for filters, so a post-filter can never return fewer than
+`limit` results.
+
+## Intent cache (M6.5)
+
+In-process, TTL + LRU bounded, keyed on the normalised query **plus the model**
+so switching `LLM_MODEL` cannot serve answers the current model never produced.
+
+```
+cold (LLM call)  : 2216.4 ms
+warm (cache hit) :    0.0 ms      identical intent on repeat: True
+```
+
+It also pins a stochastic model to one answer per query — see the determinism
+numbers below. Only *successes* are cached, so a transient failure cannot pin a
+query to "no intent" for the whole TTL, and every cache fault degrades to a live
+call rather than an error.
+
 ```bash
-uv run python scripts/build_taxonomy.py        # regenerate app/taxonomy.json
-uv run python scripts/measure_intent.py        # classifier accuracy + the gate
-uv run python scripts/measure_rerank_policy.py # policy comparison, both classes
+uv run python scripts/build_taxonomy.py            # regenerate app/taxonomy.json
+uv run python scripts/measure_intent.py            # classifier accuracy + the gate
+uv run python scripts/measure_rerank_policy.py     # policy comparison, both classes
+uv run python scripts/measure_intent_expansion.py  # 5 expansion arms, both classes
+uv run python scripts/measure_intent_determinism.py 20   # repeatability (100 LLM calls)
+uv run python scripts/test_contextual_search.py    # positive / negation / keyword / symptom
 
 # The policy is a function of the intent provider, so re-measure per provider:
 INTENT_PROVIDER=llm uv run python scripts/measure_rerank_policy.py
@@ -636,21 +689,28 @@ INTENT_PROVIDER=llm uv run python scripts/measure_rerank_policy.py
 
 ## Notes
 
-- **The LLM provider's accuracy is unmeasured.** It is implemented and every
-  code path is verified, but no `LLM_API_KEY` was available when it was built,
-  so there are no real numbers for how often it picks the right category on
-  symptom queries — the one thing it exists to do. `scripts/measure_intent.py`
-  and `scripts/measure_rerank_policy.py` both accept `INTENT_PROVIDER=llm`;
-  run them with a key before claiming anything about it. Until then the demo
-  panel for symptom queries is fixture-backed and labelled as such in the UI.
-- There is **no cache** on LLM intent, so identical queries pay the round-trip
-  every time. Deliberately out of scope here; an in-process LRU keyed on the
-  normalised query is the obvious next step if latency matters.
-- `INTENT_EXPANSION_ENABLED` defaults to `false` on purpose. The expansion is
-  built and returned, but its effect on ranking has not been measured, and the
-  one clean baseline that exists describes the un-expanded pipeline — turning
-  it on in the same change that added the intent panel would make the next
-  measurement uninterpretable.
+- **`LLM_MAX_TOKENS=400` is too small for reasoning models.** Measured with
+  DeepSeek `deepseek-v4-flash`: one query spent all 400 tokens on
+  `reasoning_tokens` and returned `finish_reason="length"` with `content=""` —
+  the reasoning trace had already reached the right answer, but nothing was left
+  to emit it. Intent accuracy on the situational set went **9/10 → 10/10** purely
+  by raising this to 1500. Reasoning models also need a longer timeout.
+- **The LLM is nondeterministic even at `temperature=0`** (which is already the
+  setting — verified, not assumed; `top_p` and `seed` are unset). Over 20
+  identical calls per query, categories agreed 0.80–1.00 and were correct 20/20
+  with 0 hallucinations, while `expanded_query` produced 17–19 distinct strings.
+  Client-side causes are ruled out by inspection; the remaining cause is
+  provider-side, most likely the sampled reasoning trace. This is why retrieval
+  expands from the taxonomy and why the cache exists.
+- **`confidence` is not calibrated.** One run returned `1.0` for an answer with
+  no categories at all. Treat it as a hint.
+- **The LLM occasionally returns nothing usable**, and the panel disappears on a
+  query it should handle. The chain degrades safely — results are unaffected —
+  but a single retry would close it.
+- **`SECONDARY_MARGIN` has admitted noise three times** (gaps 0.0493, 0.0432,
+  0.0381, all lexical collisions like "ai agent" ≈ "PR Agencies"). Tightened to
+  0.04, but the margin *shape* is probably the wrong mechanism rather than the
+  number being wrong.
 - Embedding dimensionality (384) is defined once in `app/constants.py`. The
   Atlas vector index's `numDimensions` in `scripts/atlas_indexes/vector_index.json`
   can't import that constant (it's plain JSON) — keep them in sync by hand if
