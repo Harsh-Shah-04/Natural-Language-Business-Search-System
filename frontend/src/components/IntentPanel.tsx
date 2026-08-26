@@ -52,7 +52,11 @@ export function IntentPanel({ intent }: IntentPanelProps) {
         <p className="intent-panel__label">I understood you need</p>
       </div>
 
-      <p className="intent-panel__need">{underlying_need}</p>
+      {/* A pure-negation query ("I don't want X") has no positive need, and
+          the backend leaves the field empty rather than inventing one. Render
+          nothing instead of an empty paragraph; the exclusion line below
+          carries the meaning. */}
+      {underlying_need && <p className="intent-panel__need">{underlying_need}</p>}
 
       {service_categories.length > 0 && (
         <ul className="intent-panel__categories" aria-label="Inferred service categories">

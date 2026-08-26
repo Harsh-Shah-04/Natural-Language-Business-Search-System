@@ -1,0 +1,394 @@
+{
+  "aggregate": {
+    "Original Hybrid": {
+      "success3": 0.3333333333333333,
+      "recall3": 0.3888888888888889,
+      "p5": 0.4222222222222222,
+      "mean_first_rank": 3.125
+    },
+    "Original Vector": {
+      "success3": 0.3333333333333333,
+      "recall3": 0.4259259259259259,
+      "p5": 0.4222222222222222,
+      "mean_first_rank": 2.75
+    },
+    "Expanded Vector": {
+      "success3": 0.7777777777777778,
+      "recall3": 0.7777777777777778,
+      "p5": 0.6444444444444444,
+      "mean_first_rank": 1.0
+    },
+    "Expanded Hybrid": {
+      "success3": 0.8888888888888888,
+      "recall3": 0.7777777777777778,
+      "p5": 0.6,
+      "mean_first_rank": 1.3333333333333333
+    },
+    "Both Vector": {
+      "success3": 0.6666666666666666,
+      "recall3": 0.7407407407407408,
+      "p5": 0.6666666666666666,
+      "mean_first_rank": 1.0
+    },
+    "Both Hybrid": {
+      "success3": 0.8888888888888888,
+      "recall3": 0.7777777777777778,
+      "p5": 0.6222222222222222,
+      "mean_first_rank": 1.3333333333333333
+    }
+  },
+  "per_query": {
+    "Original Hybrid": {
+      "rev-01": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-02": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-03": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.0,
+        "first_rank": null
+      },
+      "sit-04": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.4,
+        "first_rank": 3
+      },
+      "sit-05": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      },
+      "sit-06": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.4,
+        "first_rank": 2
+      },
+      "sit-07": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.2,
+        "first_rank": 5
+      },
+      "sit-08": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.2,
+        "first_rank": 5
+      },
+      "sit-09": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.0,
+        "first_rank": 10
+      },
+      "sit-10": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.6,
+        "first_rank": 2
+      }
+    },
+    "Original Vector": {
+      "rev-01": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-02": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-03": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.0,
+        "first_rank": null
+      },
+      "sit-04": {
+        "success3": 0.0,
+        "recall3": 0.6666666666666666,
+        "p5": 0.4,
+        "first_rank": 1
+      },
+      "sit-05": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      },
+      "sit-06": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.4,
+        "first_rank": 2
+      },
+      "sit-07": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.2,
+        "first_rank": 5
+      },
+      "sit-08": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.2,
+        "first_rank": 5
+      },
+      "sit-09": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.0,
+        "first_rank": 10
+      },
+      "sit-10": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.6,
+        "first_rank": 1
+      }
+    },
+    "Expanded Vector": {
+      "rev-01": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.4,
+        "first_rank": 1
+      },
+      "sit-02": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-03": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-04": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-05": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      },
+      "sit-06": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-07": {
+        "success3": 0.0,
+        "recall3": 0.6666666666666666,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-08": null,
+      "sit-09": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-10": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 0.8,
+        "first_rank": 1
+      }
+    },
+    "Expanded Hybrid": {
+      "rev-01": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.2,
+        "first_rank": 4
+      },
+      "sit-02": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-03": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-04": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-05": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      },
+      "sit-06": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-07": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-08": null,
+      "sit-09": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-10": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 0.6,
+        "first_rank": 1
+      }
+    },
+    "Both Vector": {
+      "rev-01": {
+        "success3": 0.0,
+        "recall3": 0.3333333333333333,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-02": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-03": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-04": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-05": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      },
+      "sit-06": {
+        "success3": 0.0,
+        "recall3": 0.6666666666666666,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-07": {
+        "success3": 0.0,
+        "recall3": 0.6666666666666666,
+        "p5": 0.4,
+        "first_rank": 1
+      },
+      "sit-08": null,
+      "sit-09": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-10": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      }
+    },
+    "Both Hybrid": {
+      "rev-01": {
+        "success3": 0.0,
+        "recall3": 0.0,
+        "p5": 0.4,
+        "first_rank": 4
+      },
+      "sit-02": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-03": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-04": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-05": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 1.0,
+        "first_rank": 1
+      },
+      "sit-06": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-07": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-08": null,
+      "sit-09": {
+        "success3": 1.0,
+        "recall3": 1.0,
+        "p5": 0.6,
+        "first_rank": 1
+      },
+      "sit-10": {
+        "success3": 1.0,
+        "recall3": 0.5,
+        "p5": 0.6,
+        "first_rank": 1
+      }
+    }
+  }
+}

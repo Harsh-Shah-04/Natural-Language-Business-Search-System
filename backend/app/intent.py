@@ -83,6 +83,8 @@ follows in app/search.py.
 import json
 import os
 import threading
+import time
+from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -113,7 +115,31 @@ MIN_SIMILARITY = 0.58
 # notice from the tax department" is genuinely both Chartered Accountants and
 # GST Consultants -- so a hard top-1 would under-report, while an unbounded
 # list would pad the panel with noise.
-SECONDARY_MARGIN = 0.05
+#
+# 0.04 sits in the empty band between the two, measured over all 42 queries in
+# the golden + situational + negative sets. Only six produce a secondary at
+# all, and they separate cleanly:
+#
+#   gap     query                                            verdict
+#   0.0148  multi-04 "both cold storage AND last-mile"       genuine multi-intent
+#   0.0163  multi-03 "both GST filing AND tax audits"        genuine multi-intent
+#   0.0203  sem-01   "help filing my business taxes"         genuine multi-intent
+#   0.0343  multi-05 "both interiors AND electrical work"    genuine multi-intent
+#   ------------------------------------------------------- 0.04 threshold
+#   0.0432  syn-04   -> Digital Marketing, Advertising       false (truth: Branding only)
+#   0.0493  whats-pos-> PR Agencies                          false ("ai agent" ~ "PR Agencies")
+#
+# The two rejected cases are lexical collisions, not meaning: "ai agent" is
+# close to "PR Agencies" as strings, and that is exactly the M4.1 "business
+# trip" / "business insurance" failure surfacing in the panel instead of the
+# ranking. A panel asserting understanding it does not have is worse than a
+# panel showing one category, so the threshold sits nearer the legitimate side
+# of the band (0.0057 of headroom above the widest genuine gap).
+#
+# This affects DISPLAY and expanded_query only. names_a_service() reads
+# MIN_SIMILARITY alone, so reranking routing and retrieval are untouched --
+# verified before/after across all 42 queries.
+SECONDARY_MARGIN = 0.04
 MAX_CATEGORIES = 3
 
 # Caps on model-authored text (M6.2). underlying_need and exclusions are
@@ -126,6 +152,31 @@ LLM_MAX_EXCLUSIONS = 5
 LLM_MAX_EXCLUSION_CHARS = 80
 
 INTENT_PROVIDER = os.environ.get("INTENT_PROVIDER", "auto").strip().lower()
+
+# In-process LLM intent cache (M6.5). Two independent reasons, both measured:
+#
+# 1. REPRODUCIBILITY. scripts/measure_intent_determinism.py ran the same query
+#    20 times at temperature=0 and got 0.05-0.25 exact agreement: the category
+#    is stable (0.80-1.00, correct in 20/20) but underlying_need and
+#    expanded_query are re-worded almost every call. Scoring each distinct
+#    expansion through retrieval, the reviewer's own query passed 10 times and
+#    failed 8. Caching does not make the first answer better -- it makes it
+#    FIXED, so the same query cannot give a user two different answers.
+# 2. LATENCY AND COST. p50 ~2.5s, max ~9s per call, and every call ships the
+#    user's query to a third party.
+#
+# Deliberately small: a dict with an insertion-ordered FIFO bound and a TTL.
+# No distributed cache, no persistence -- a process restart simply re-fetches.
+# Only successful intents are stored; a None (model declined, or every category
+# was hallucinated) is never cached, so a transient failure cannot pin a query
+# to "no intent" for the whole TTL.
+INTENT_CACHE_SIZE = int(os.environ.get("INTENT_CACHE_SIZE", "512"))
+INTENT_CACHE_TTL_SECONDS = float(os.environ.get("INTENT_CACHE_TTL_SECONDS", "3600"))
+
+_intent_cache: "OrderedDict[str, tuple[float, QueryIntent]]" = OrderedDict()
+_intent_cache_lock = threading.Lock()
+_cache_hits = 0
+_cache_misses = 0
 
 FIXTURES_PATH = Path(__file__).resolve().parent / "intent_fixtures.json"
 
@@ -412,9 +463,27 @@ def _parse_llm_json(completion: str, prefill: str = "{") -> dict:
 
 
 def _llm_intent(query: str) -> QueryIntent | None:
+    """Cached at this level, not around infer_intent(), because only the LLM
+    path is expensive and nondeterministic. The classifier is ~10ms and returns
+    the same answer for the same input; caching it would add a code path for no
+    gain."""
+    global _cache_hits, _cache_misses
+
     if not llm.is_configured():
         _set_state("disabled", "LLM_API_KEY is not set")
         return None
+
+    # Keyed on the normalised query plus the model, so switching LLM_MODEL does
+    # not serve answers the current model never produced.
+    cache_key = f"{llm.describe()}|{_normalize(query)}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        with _intent_cache_lock:
+            _cache_hits += 1
+        _set_state("ready", f"{llm.describe()}; cache hit")
+        return cached
+    with _intent_cache_lock:
+        _cache_misses += 1
 
     prompt = _LLM_SYSTEM_PROMPT.format(
         categories="\n".join(f"- {name}" for name in category_names())
@@ -466,7 +535,14 @@ def _llm_intent(query: str) -> QueryIntent | None:
         _set_state("error", detail)
         _set_llm_error(detail)
         return None
-    if not underlying_need:
+    # A pure-negation query legitimately has no positive need -- "I don't want
+    # WhatsApp bot companies" is a complete intent consisting only of an
+    # exclusion, and scripts/measure_intent_determinism.py showed the model
+    # returns "" for underlying_need on some of those runs. Dropping the intent
+    # there would throw away the exclusion, which is the only thing the user
+    # actually told us. Nothing is invented to fill the gap: the field stays
+    # empty and the UI omits that line.
+    if not underlying_need and not exclusions:
         detail = "model returned no underlying_need"
         _set_state("error", detail)
         _set_llm_error(detail)
@@ -487,7 +563,7 @@ def _llm_intent(query: str) -> QueryIntent | None:
 
     _set_state("ready", llm.describe() + (f"; dropped {dropped} unknown" if dropped else ""))
     _set_llm_error(None)
-    return QueryIntent(
+    result = QueryIntent(
         underlying_need=underlying_need,
         service_categories=chosen,
         expanded_query=expanded,
@@ -495,6 +571,10 @@ def _llm_intent(query: str) -> QueryIntent | None:
         confidence=round(confidence, 4),
         source="llm",
     )
+    # Only successes are cached: a None must stay retryable, or one bad minute
+    # would pin a query to "no intent" for the whole TTL.
+    _cache_put(cache_key, result)
+    return result
 
 
 # ---- fixture provider -----------------------------------------------------
@@ -502,6 +582,52 @@ def _llm_intent(query: str) -> QueryIntent | None:
 
 def _normalize(query: str) -> str:
     return " ".join(query.lower().split())
+
+
+# ---- llm intent cache -----------------------------------------------------
+
+
+def _cache_get(key: str) -> QueryIntent | None:
+    """Never raises: a cache fault must degrade to a live call, not an error."""
+    try:
+        with _intent_cache_lock:
+            entry = _intent_cache.get(key)
+            if entry is None:
+                return None
+            stored_at, intent = entry
+            if time.monotonic() - stored_at > INTENT_CACHE_TTL_SECONDS:
+                _intent_cache.pop(key, None)
+                return None
+            _intent_cache.move_to_end(key)  # keep hot entries away from eviction
+            return intent
+    except Exception:
+        return None
+
+
+def _cache_put(key: str, intent: QueryIntent) -> None:
+    try:
+        with _intent_cache_lock:
+            _intent_cache[key] = (time.monotonic(), intent)
+            _intent_cache.move_to_end(key)
+            while len(_intent_cache) > max(INTENT_CACHE_SIZE, 1):
+                _intent_cache.popitem(last=False)  # evict least recently used
+    except Exception:
+        pass
+
+
+def get_cache_stats() -> dict[str, int]:
+    with _intent_cache_lock:
+        return {"entries": len(_intent_cache), "hits": _cache_hits, "misses": _cache_misses}
+
+
+def clear_intent_cache() -> None:
+    """Drop every cached intent. Used by tests and measurement scripts that
+    need a guaranteed cold call; not wired to any endpoint."""
+    global _cache_hits, _cache_misses
+    with _intent_cache_lock:
+        _intent_cache.clear()
+        _cache_hits = 0
+        _cache_misses = 0
 
 
 def _get_fixtures() -> dict[str, dict]:

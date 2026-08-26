@@ -58,10 +58,21 @@ import intent_cache  # noqa: E402
 from app import search as search_module  # noqa: E402
 from app.db import get_db  # noqa: E402
 from app.search import search_businesses  # noqa: E402
+from app.taxonomy import (  # noqa: E402
+    get_categories,
+    is_known_category,
+    profile_text,
+)
 from eval_dataset import GOLDEN_QUERIES  # noqa: E402
 from measure_situational_baseline import QUERIES as SITUATIONAL  # noqa: E402
 
-ARMS = ("raw", "expanded", "raw+expanded")
+# "taxonomy" is the stable alternative to the model's prose: the SAME chosen
+# categories, but the expansion text comes from app/taxonomy.json instead of
+# from free generation. measure_intent_determinism.py showed categories agree
+# 0.80-1.00 across identical calls while expanded_query varies 17-19 distinct
+# values in 20 -- so this arm is deterministic given the categories, and the
+# free-text arms are not.
+ARMS = ("raw", "expanded", "raw+expanded", "taxonomy", "raw+taxonomy")
 
 
 def _live_names(categories) -> set[str]:
@@ -81,9 +92,28 @@ def _metrics(ranked: list[str], relevant: set[str]) -> dict:
     }
 
 
+def _taxonomy_expansion(intent) -> str:
+    """The chosen categories' own vocabulary, straight from taxonomy.json."""
+    if intent is None or not intent.service_categories:
+        return ""
+    categories = get_categories()
+    return " ".join(
+        profile_text(categories[name])
+        for name in intent.service_categories
+        if is_known_category(name)
+    )
+
+
 def _retrieval_query(arm: str, query: str, intent) -> str:
-    if arm == "raw" or intent is None or not intent.expanded_query:
+    if arm == "raw" or intent is None:
         return query
+    if arm in ("taxonomy", "raw+taxonomy"):
+        vocabulary = _taxonomy_expansion(intent)
+        if not vocabulary:
+            return None
+        return vocabulary if arm == "taxonomy" else f"{query} {vocabulary}"
+    if not intent.expanded_query:
+        return None
     if arm == "expanded":
         return intent.expanded_query
     return f"{query} {intent.expanded_query}"
@@ -94,8 +124,11 @@ def _run(query: str, relevant: set[str], arm: str, intent) -> dict:
     # whether a user named their service is a property of what they typed, not
     # of what the expansion turned it into. Calling search.py's own
     # _should_rerank keeps this measurement tied to shipped behavior.
+    text = _retrieval_query(arm, query, intent)
+    if text is None:
+        return None  # this arm is undefined for this query (no intent / no expansion)
     rerank = search_module._should_rerank(query, intent)
-    results = search_businesses(_retrieval_query(arm, query, intent), 10, None, rerank=rerank)
+    results = search_businesses(text, 10, None, rerank=rerank)
     row = _metrics([r["business_name"] for r in results], relevant)
     row["reranked"] = rerank
     return row
@@ -128,32 +161,42 @@ def main() -> int:
                 intent = intent_cache.get_intent(query)
                 row = _run(query, relevant, arm, intent)
                 rows.append(row)
-                per_query.setdefault(qid, {"query": query})[arm] = row["success3"]
+                per_query.setdefault(qid, {"query": query})[arm] = (
+                    None if row is None else row["success3"]
+                )
+            defined = [r for r in rows if r is not None]
             table[suite_name][arm] = {
-                k: sum(r[k] for r in rows) / len(rows)
+                k: (sum(r[k] for r in defined) / len(defined)) if defined else None
                 for k in ("success3", "recall3", "p5")
             }
+            table[suite_name][arm]["n"] = len(defined)
 
     for suite_name, queries in suites.items():
         print("=" * 78)
         print(f"{suite_name}  (n={len(queries)})")
         print("=" * 78)
-        print(f"{'arm':<16}{'success@3':>11}{'recall@3':>11}{'P@5':>9}")
+        print(f"{'arm':<16}{'success@3':>11}{'recall@3':>11}{'P@5':>9}{'n':>5}")
         print("-" * 78)
         for arm in ARMS:
             m = table[suite_name][arm]
-            print(f"{arm:<16}{m['success3']:>11.3f}{m['recall3']:>11.3f}{m['p5']:>9.3f}")
+            if m["success3"] is None:
+                print(f"{arm:<16}{'n/a':>11}")
+                continue
+            print(f"{arm:<16}{m['success3']:>11.3f}{m['recall3']:>11.3f}"
+                  f"{m['p5']:>9.3f}{m['n']:>5}")
         print()
 
     print("=" * 78)
     print("PER-QUERY success@3  (symptom-only)")
     print("=" * 78)
-    print(f"{'id':<9}{'raw':>6}{'exp':>6}{'both':>6}   query")
-    print("-" * 78)
+    print(f"{'id':<9}" + "".join(f"{a[:12]:>14}" for a in ARMS) + "   query")
+    print("-" * 100)
     for qid, _, _ in situational:
         row = per_query[qid]
-        print(f"{qid:<9}{row['raw']:>6.0f}{row['expanded']:>6.0f}"
-              f"{row['raw+expanded']:>6.0f}   {row['query'][:44]}")
+        cells = "".join(
+            f"{('-' if row[a] is None else f'{row[a]:.0f}'):>14}" for a in ARMS
+        )
+        print(f"{qid:<9}{cells}   {row['query'][:34]}")
     print()
 
     print("=" * 78)
@@ -162,7 +205,9 @@ def main() -> int:
     for suite_name in suites:
         base = table[suite_name]["raw"]
         print(f"  {suite_name}")
-        for arm in ("expanded", "raw+expanded"):
+        for arm in ARMS[1:]:
+            if table[suite_name][arm]["success3"] is None:
+                continue
             deltas = " ".join(
                 f"{k}={table[suite_name][arm][k] - base[k]:+.3f}"
                 for k in ("success3", "recall3", "p5")

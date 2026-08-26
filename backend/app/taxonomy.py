@@ -96,6 +96,60 @@ def is_known_category(name: str) -> bool:
     return name in get_categories()
 
 
+def resolve_category(text: str) -> str | None:
+    """Map free text onto a trusted category name, or None if it cannot be
+    mapped safely.
+
+    This is how a model-authored exclusion ("cybersecurity firm") becomes a
+    filterable sub_category ("Cybersecurity"). It matches against the TRUSTED
+    TAXONOMY'S OWN NAMES -- never against business descriptions, and never as a
+    loose substring of arbitrary document text. "cybersecurity" appearing in
+    some company's description must never cause filtering; only the taxonomy
+    label itself may.
+
+    Deliberately conservative, because the failure modes are asymmetric. A
+    missed mapping means an exclusion is ignored and the user sees a result
+    they did not want -- annoying. A wrong mapping silently deletes a whole
+    category from the results -- much worse, and invisible to the user. So:
+
+      - exact match on the normalised name wins outright;
+      - otherwise the category name must appear as a whole phrase in the text
+        ("cybersecurity firm" contains "cybersecurity");
+      - ambiguity resolves to the LONGEST matching name, so "Food Packaging"
+        beats a hypothetical "Packaging" rather than both applying;
+      - anything unmatched returns None and filters nothing.
+
+    Free text that names no taxonomy category -- "WhatsApp bot companies",
+    or a hallucinated value -- therefore has no effect at all, which is the
+    required behaviour for unknown exclusions.
+    """
+    normalized = " ".join(text.lower().split())
+    if not normalized:
+        return None
+
+    categories = get_categories()
+    for name in categories:
+        if normalized == name.lower():
+            return name
+
+    matches = [name for name in categories if name.lower() in normalized]
+    if not matches:
+        return None
+    return max(matches, key=len)
+
+
+def resolve_categories(texts: list[str]) -> list[str]:
+    """Every trusted category the given free-text values map to, de-duplicated
+    and order-preserving. Values that map to nothing are dropped silently --
+    see resolve_category for why that is the safe direction."""
+    resolved: list[str] = []
+    for text in texts:
+        name = resolve_category(text)
+        if name and name not in resolved:
+            resolved.append(name)
+    return resolved
+
+
 def profile_text(category: dict) -> str:
     """The text representing a category to the embedding model.
 

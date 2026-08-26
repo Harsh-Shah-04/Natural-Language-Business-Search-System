@@ -1,0 +1,1727 @@
+{
+  "model": "openai:deepseek-v4-flash",
+  "reps": 20,
+  "queries": [
+    {
+      "id": "Q1-phishing",
+      "query": "My company keeps getting suspicious emails and I want someone to make sure our employees don't fall for scams.",
+      "runs": 20,
+      "errors": 0,
+      "exact_agreement": 0.1,
+      "category_agreement": 0.9,
+      "modal_categories": [
+        "Cybersecurity"
+      ],
+      "distinct_category_sets": 2,
+      "category_sets": {
+        "['Cybersecurity', 'Corporate Training']": 2,
+        "['Cybersecurity']": 18
+      },
+      "distinct_needs": 13,
+      "sample_needs": [
+        "cybersecurity awareness and anti-phishing training",
+        "cybersecurity awareness training against phishing scams",
+        "cybersecurity protection and awareness training",
+        "cybersecurity protection and employee scam prevention",
+        "email security and anti-phishing training",
+        "email security and phishing awareness training"
+      ],
+      "distinct_expanded": 18,
+      "sample_expanded": [
+        "cybersecurity awareness anti phishing email security training",
+        "cybersecurity awareness phishing protection employee training",
+        "cybersecurity awareness phishing protection training",
+        "cybersecurity awareness training email phishing protection"
+      ],
+      "confidence_values": {
+        "0.9": 15,
+        "0.85": 5
+      },
+      "confidence_min": 0.85,
+      "confidence_max": 0.9,
+      "correct_rate": 1.0,
+      "hallucinated_categories": {},
+      "negation_kept_rate": null,
+      "negation_flipped_positive": null,
+      "distinct_exclusion_sets": null,
+      "exclusion_sets": null,
+      "latency_p50": 2467.5843000004534,
+      "latency_max": 5483.951999995043,
+      "runs_detail": [
+        {
+          "ok": true,
+          "latency_ms": 3693.426300000283,
+          "underlying_need": "employee cybersecurity awareness and email scam prevention",
+          "categories_raw": [
+            "Cybersecurity",
+            "Corporate Training"
+          ],
+          "categories_valid": [
+            "Cybersecurity",
+            "Corporate Training"
+          ],
+          "hallucinated": [],
+          "expanded_query": "phishing prevention security awareness employee training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2163.8011999966693,
+          "underlying_need": "employee security awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "phishing protection security awareness training email security",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2681.1290999976336,
+          "underlying_need": "employee cybersecurity awareness and phishing protection",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness phishing protection employee training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2352.1914000011748,
+          "underlying_need": "employee cybersecurity awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness training email phishing protection",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3252.7692999938154,
+          "underlying_need": "employee cybersecurity awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness training email phishing protection",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3774.9368000004324,
+          "underlying_need": "cybersecurity protection and employee scam prevention",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity phishing protection employee security awareness training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 4900.748700005352,
+          "underlying_need": "cybersecurity awareness and anti-phishing training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity training phishing awareness employee security",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 5483.951999995043,
+          "underlying_need": "employee security awareness and phishing protection",
+          "categories_raw": [
+            "Cybersecurity",
+            "Corporate Training"
+          ],
+          "categories_valid": [
+            "Cybersecurity",
+            "Corporate Training"
+          ],
+          "hallucinated": [],
+          "expanded_query": "phishing prevention employee security awareness training",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 1790.117900003679,
+          "underlying_need": "employee cybersecurity awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness training phishing protection",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3428.5901999974158,
+          "underlying_need": "employee cybersecurity awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness phishing protection employee training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2173.3222999973805,
+          "underlying_need": "employee cybersecurity awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity email phishing awareness training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 1827.590600005351,
+          "underlying_need": "email security and anti-phishing training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity phishing awareness email security training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2392.4135000052047,
+          "underlying_need": "email security and anti-phishing training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "phishing protection email security security awareness training",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 3167.114899995795,
+          "underlying_need": "cybersecurity awareness training against phishing scams",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness training employee phishing protection",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2239.0769999983604,
+          "underlying_need": "cybersecurity protection and awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness phishing protection training",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 1824.7614000065369,
+          "underlying_need": "email security and phishing awareness training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "email security phishing awareness training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2471.4621000020998,
+          "underlying_need": "employee security awareness training and phishing protection",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness training phishing protection employee security",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3590.884000004735,
+          "underlying_need": "email security and anti-phishing training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity phishing protection employee awareness",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2463.706499998807,
+          "underlying_need": "cybersecurity awareness and anti-phishing training",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness anti phishing email security training",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2355.6222999977763,
+          "underlying_need": "employee cybersecurity training and email threat protection",
+          "categories_raw": [
+            "Cybersecurity"
+          ],
+          "categories_valid": [
+            "Cybersecurity"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cybersecurity awareness training phishing protection email security",
+          "exclusions": [],
+          "confidence": 0.9
+        }
+      ]
+    },
+    {
+      "id": "Q2-traffic",
+      "query": "My website keeps crashing whenever we get a lot of visitors.",
+      "runs": 20,
+      "errors": 0,
+      "exact_agreement": 0.05,
+      "category_agreement": 1.0,
+      "modal_categories": [
+        "Cloud Services"
+      ],
+      "distinct_category_sets": 1,
+      "category_sets": {
+        "['Cloud Services']": 20
+      },
+      "distinct_needs": 10,
+      "sample_needs": [
+        "scalable web hosting",
+        "scalable web hosting and infrastructure",
+        "scalable web hosting and performance optimization",
+        "scalable website hosting",
+        "scalable website hosting and infrastructure",
+        "scalable website hosting and load management"
+      ],
+      "distinct_expanded": 19,
+      "sample_expanded": [
+        "cloud hosting scalable infrastructure website traffic",
+        "scalable cloud hosting website performance",
+        "scalable web hosting cloud infrastructure",
+        "scalable web hosting cloud infrastructure performance"
+      ],
+      "confidence_values": {
+        "0.8": 7,
+        "0.85": 6,
+        "0.7": 3,
+        "0.75": 3,
+        "0.72": 1
+      },
+      "confidence_min": 0.7,
+      "confidence_max": 0.85,
+      "correct_rate": 1.0,
+      "hallucinated_categories": {},
+      "negation_kept_rate": null,
+      "negation_flipped_positive": null,
+      "distinct_exclusion_sets": null,
+      "exclusion_sets": null,
+      "latency_p50": 2170.6930000000284,
+      "latency_max": 3038.090899994131,
+      "runs_detail": [
+        {
+          "ok": true,
+          "latency_ms": 2204.0334999983315,
+          "underlying_need": "scalable web hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability traffic surge cloud infrastructure",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 2069.5464000018546,
+          "underlying_need": "website scalability and hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website traffic handling cloud hosting scalability",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2762.556500005303,
+          "underlying_need": "scalable website hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability cloud infrastructure load balancing",
+          "exclusions": [],
+          "confidence": 0.7
+        },
+        {
+          "ok": true,
+          "latency_ms": 1943.3772999982466,
+          "underlying_need": "scalable web hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "scalable web hosting cloud infrastructure",
+          "exclusions": [],
+          "confidence": 0.75
+        },
+        {
+          "ok": true,
+          "latency_ms": 1728.274599998258,
+          "underlying_need": "scalable web hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "scalable web hosting cloud servers traffic spikes",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 2398.4751000025426,
+          "underlying_need": "scalable web hosting and performance optimization",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability crash handling traffic",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 1786.8812999950023,
+          "underlying_need": "scalable web hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "scalable cloud hosting website performance",
+          "exclusions": [],
+          "confidence": 0.75
+        },
+        {
+          "ok": true,
+          "latency_ms": 2308.5636000032537,
+          "underlying_need": "scalable web hosting and performance optimization",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability traffic spike performance",
+          "exclusions": [],
+          "confidence": 0.75
+        },
+        {
+          "ok": true,
+          "latency_ms": 2893.1993000005605,
+          "underlying_need": "scalable website hosting and load management",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cloud hosting scalable infrastructure website traffic",
+          "exclusions": [],
+          "confidence": 0.72
+        },
+        {
+          "ok": true,
+          "latency_ms": 2379.04150000395,
+          "underlying_need": "scalable web hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability performance traffic handling",
+          "exclusions": [],
+          "confidence": 0.7
+        },
+        {
+          "ok": true,
+          "latency_ms": 2137.3525000017253,
+          "underlying_need": "scalable website hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "scalable web hosting cloud infrastructure traffic handling",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 1866.8479999978445,
+          "underlying_need": "website scalability and hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "scalable web hosting cloud infrastructure performance",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2466.8376999979955,
+          "underlying_need": "website scalability and performance",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability cloud infrastructure performance",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 2080.3304000000935,
+          "underlying_need": "web hosting and scalability management",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "web hosting scalability server management",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 3038.090899994131,
+          "underlying_need": "website scalability and reliable hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scaling cloud infrastructure crash protection",
+          "exclusions": [],
+          "confidence": 0.7
+        },
+        {
+          "ok": true,
+          "latency_ms": 2244.3577000012738,
+          "underlying_need": "scalable web hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "scalable website hosting cloud infrastructure",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 1509.1847999938182,
+          "underlying_need": "scalable web hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability load balancing cloud infrastructure",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2101.4270999949076,
+          "underlying_need": "scalable web hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability cloud infrastructure",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2008.9236999992863,
+          "underlying_need": "scalable web hosting and infrastructure",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting cloud infrastructure traffic scaling",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2450.829399997019,
+          "underlying_need": "website scalability and reliable hosting",
+          "categories_raw": [
+            "Cloud Services"
+          ],
+          "categories_valid": [
+            "Cloud Services"
+          ],
+          "hallucinated": [],
+          "expanded_query": "website hosting scalability load balancing cloud infrastructure",
+          "exclusions": [],
+          "confidence": 0.8
+        }
+      ]
+    },
+    {
+      "id": "Q3-spoiling",
+      "query": "Our vegetables keep spoiling before they reach customers.",
+      "runs": 20,
+      "errors": 0,
+      "exact_agreement": 0.05,
+      "category_agreement": 0.95,
+      "modal_categories": [
+        "Cold Chain"
+      ],
+      "distinct_category_sets": 2,
+      "category_sets": {
+        "['Cold Chain']": 19,
+        "['Cold Chain', 'Warehousing']": 1
+      },
+      "distinct_needs": 13,
+      "sample_needs": [
+        "cold chain logistics",
+        "cold chain logistics for perishable goods",
+        "cold chain logistics for perishable produce",
+        "cold storage and refrigerated transport",
+        "perishable food cold storage and transport",
+        "perishable goods cold chain logistics"
+      ],
+      "distinct_expanded": 17,
+      "sample_expanded": [
+        "cold chain logistics perishable food transportation",
+        "cold chain logistics perishable goods temperature controlled transport",
+        "cold chain logistics perishable vegetables temperature controlled transport",
+        "cold chain logistics refrigerated transport perishable goods"
+      ],
+      "confidence_values": {
+        "0.9": 14,
+        "0.92": 1,
+        "0.85": 5
+      },
+      "confidence_min": 0.85,
+      "confidence_max": 0.92,
+      "correct_rate": 1.0,
+      "hallucinated_categories": {},
+      "negation_kept_rate": null,
+      "negation_flipped_positive": null,
+      "distinct_exclusion_sets": null,
+      "exclusion_sets": null,
+      "latency_p50": 2647.3373000007996,
+      "latency_max": 3568.549099996744,
+      "runs_detail": [
+        {
+          "ok": true,
+          "latency_ms": 3052.560700001777,
+          "underlying_need": "cold chain logistics for perishable produce",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport produce spoilage",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2042.8332000010414,
+          "underlying_need": "temperature-controlled transport and storage for fresh produce",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics temperature controlled transport fresh produce",
+          "exclusions": [],
+          "confidence": 0.92
+        },
+        {
+          "ok": true,
+          "latency_ms": 3193.3255000039935,
+          "underlying_need": "temperature-controlled logistics for perishable produce",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport storage perishable vegetables",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3422.1449000033317,
+          "underlying_need": "cold chain logistics",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport fresh produce",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2795.882900005381,
+          "underlying_need": "cold chain logistics for perishable produce",
+          "categories_raw": [
+            "Cold Chain",
+            "Warehousing"
+          ],
+          "categories_valid": [
+            "Cold Chain",
+            "Warehousing"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain vegetable storage transportation",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2137.16420000128,
+          "underlying_need": "perishable goods cold chain logistics",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport cold storage perishable goods",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2114.194599998882,
+          "underlying_need": "temperature-controlled logistics",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport perishable goods",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2672.8977000020677,
+          "underlying_need": "cold storage and refrigerated transport",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport produce spoilage",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2446.10890000331,
+          "underlying_need": "temperature-controlled transport and storage for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics refrigerated transport perishable goods",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2621.7768999995315,
+          "underlying_need": "temperature-controlled supply chain for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics temperature controlled transport perishable goods",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2981.998900002509,
+          "underlying_need": "temperature-controlled logistics for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics temperature controlled transport perishable goods",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2593.167999999423,
+          "underlying_need": "perishable food cold storage and transport",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport storage perishable goods",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2287.3150000013993,
+          "underlying_need": "temperature-controlled supply chain for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics perishable food transportation",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3568.549099996744,
+          "underlying_need": "cold chain logistics for perishable produce",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold storage refrigerated transport perishable goods",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3331.4231999975163,
+          "underlying_need": "cold chain logistics for perishable goods",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain transport perishable vegetables temperature controlled logistics",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3476.3969000050565,
+          "underlying_need": "temperature-controlled transport for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain transportation perishable vegetables",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2902.386400004616,
+          "underlying_need": "temperature-controlled transport for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics perishable vegetables temperature controlled transport",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2101.3862999971025,
+          "underlying_need": "temperature-controlled transport and storage for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics perishable goods temperature controlled transport",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2068.0697999996482,
+          "underlying_need": "temperature-controlled logistics for perishables",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain refrigerated transport vegetable logistics",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 1553.047699999297,
+          "underlying_need": "cold chain logistics for perishable produce",
+          "categories_raw": [
+            "Cold Chain"
+          ],
+          "categories_valid": [
+            "Cold Chain"
+          ],
+          "hallucinated": [],
+          "expanded_query": "cold chain logistics refrigerated transport perishable goods",
+          "exclusions": [],
+          "confidence": 0.9
+        }
+      ]
+    },
+    {
+      "id": "Q4-money",
+      "query": "I need someone to help us manage our money and investments.",
+      "runs": 20,
+      "errors": 0,
+      "exact_agreement": 0.15,
+      "category_agreement": 0.8,
+      "modal_categories": [
+        "Investment Advisors"
+      ],
+      "distinct_category_sets": 2,
+      "category_sets": {
+        "['Investment Advisors']": 16,
+        "['Investment Advisors', 'Chartered Accountants']": 4
+      },
+      "distinct_needs": 10,
+      "sample_needs": [
+        "financial advisory and investment management",
+        "financial and investment management",
+        "financial planning and investment management",
+        "investment advisory and wealth management",
+        "investment and financial management",
+        "investment and money management"
+      ],
+      "distinct_expanded": 10,
+      "sample_expanded": [
+        "financial planning investment management wealth advisory",
+        "financial planning investment management wealth management",
+        "investment advisory wealth management financial planning",
+        "investment management financial advisory wealth management"
+      ],
+      "confidence_values": {
+        "0.95": 1,
+        "0.85": 8,
+        "0.9": 9,
+        "0.7": 1,
+        "0.8": 1
+      },
+      "confidence_min": 0.7,
+      "confidence_max": 0.95,
+      "correct_rate": 1.0,
+      "hallucinated_categories": {},
+      "negation_kept_rate": null,
+      "negation_flipped_positive": null,
+      "distinct_exclusion_sets": null,
+      "exclusion_sets": null,
+      "latency_p50": 2514.018350000697,
+      "latency_max": 4261.0908999995445,
+      "runs_detail": [
+        {
+          "ok": true,
+          "latency_ms": 3082.158500001242,
+          "underlying_need": "investment and money management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial advisory wealth management",
+          "exclusions": [],
+          "confidence": 0.95
+        },
+        {
+          "ok": true,
+          "latency_ms": 2213.473800002248,
+          "underlying_need": "financial and investment management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2345.6116000015754,
+          "underlying_need": "investment management and financial advice",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2101.2160000027507,
+          "underlying_need": "investment and wealth management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment advisory wealth management financial planning",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2177.7140999984113,
+          "underlying_need": "investment advisory and wealth management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment advisory wealth management financial planning",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2169.6282000048086,
+          "underlying_need": "investment advisory and wealth management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "wealth management investment advisory financial planning",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3275.6732999987435,
+          "underlying_need": "investment and financial management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2442.772700000205,
+          "underlying_need": "investment management and financial planning",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 4064.8088000016287,
+          "underlying_need": "financial advisory and investment management",
+          "categories_raw": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "categories_valid": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "hallucinated": [],
+          "expanded_query": "money management investment planning financial advisors",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 4261.0908999995445,
+          "underlying_need": "investment and financial management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2585.264000001189,
+          "underlying_need": "investment management and financial advisory",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth advisory",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 1719.2469000001438,
+          "underlying_need": "investment and wealth management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 1959.2429999975138,
+          "underlying_need": "investment management and financial planning",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 3784.1397000011057,
+          "underlying_need": "financial and investment management",
+          "categories_raw": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "categories_valid": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "hallucinated": [],
+          "expanded_query": "financial planning investment management wealth management",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2611.5150000041467,
+          "underlying_need": "financial planning and investment management",
+          "categories_raw": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "categories_valid": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.7
+        },
+        {
+          "ok": true,
+          "latency_ms": 2237.514699998428,
+          "underlying_need": "investment and wealth management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management portfolio advisory wealth planning",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 3484.263699996518,
+          "underlying_need": "financial and investment management",
+          "categories_raw": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "categories_valid": [
+            "Investment Advisors",
+            "Chartered Accountants"
+          ],
+          "hallucinated": [],
+          "expanded_query": "financial planning investment management wealth advisory",
+          "exclusions": [],
+          "confidence": 0.8
+        },
+        {
+          "ok": true,
+          "latency_ms": 2242.6571999967564,
+          "underlying_need": "investment and financial management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth advisory",
+          "exclusions": [],
+          "confidence": 0.85
+        },
+        {
+          "ok": true,
+          "latency_ms": 2622.2318000000087,
+          "underlying_need": "investment management and financial planning",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management financial planning wealth management",
+          "exclusions": [],
+          "confidence": 0.9
+        },
+        {
+          "ok": true,
+          "latency_ms": 2697.2275999942212,
+          "underlying_need": "investment and wealth management",
+          "categories_raw": [
+            "Investment Advisors"
+          ],
+          "categories_valid": [
+            "Investment Advisors"
+          ],
+          "hallucinated": [],
+          "expanded_query": "investment management wealth management financial advisory",
+          "exclusions": [],
+          "confidence": 0.85
+        }
+      ]
+    },
+    {
+      "id": "Q5-negation",
+      "query": "I don't want WhatsApp bot companies.",
+      "runs": 20,
+      "errors": 0,
+      "exact_agreement": 0.25,
+      "category_agreement": 1.0,
+      "modal_categories": [],
+      "distinct_category_sets": 1,
+      "category_sets": {
+        "[]": 20
+      },
+      "distinct_needs": 9,
+      "sample_needs": [
+        "",
+        "no inferred service need",
+        "no service need",
+        "no service need identified",
+        "no specific service need",
+        "no specific service need identified"
+      ],
+      "distinct_expanded": 5,
+      "sample_expanded": [
+        "",
+        "no service need",
+        "no specific service",
+        "none"
+      ],
+      "confidence_values": {
+        "0.0": 9,
+        "0.1": 9,
+        "0.2": 1,
+        "1.0": 1
+      },
+      "confidence_min": 0.0,
+      "confidence_max": 1.0,
+      "correct_rate": null,
+      "hallucinated_categories": {},
+      "negation_kept_rate": 1.0,
+      "negation_flipped_positive": 0,
+      "distinct_exclusion_sets": 1,
+      "exclusion_sets": {
+        "['WhatsApp bot companies']": 20
+      },
+      "latency_p50": 4252.305500001967,
+      "latency_max": 9112.125499996182,
+      "runs_detail": [
+        {
+          "ok": true,
+          "latency_ms": 5221.253700001398,
+          "underlying_need": "not specified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 2917.7793999988353,
+          "underlying_need": "no specific service need identified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 4136.725700001989,
+          "underlying_need": "no specific service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 4403.645700003835,
+          "underlying_need": "",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 5419.1418000045815,
+          "underlying_need": "no service need identified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 4367.885300001944,
+          "underlying_need": "no service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 6116.496499998902,
+          "underlying_need": "no specific service need identified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 6670.4533000011,
+          "underlying_need": "no specific service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 3554.857600000105,
+          "underlying_need": "unspecified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.2
+        },
+        {
+          "ok": true,
+          "latency_ms": 7050.162799998361,
+          "underlying_need": "",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "no service need",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 1.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 2821.437099999457,
+          "underlying_need": "no service need identified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 9112.125499996182,
+          "underlying_need": "none",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 3626.7109000036726,
+          "underlying_need": "unspecified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "unspecified need",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 5497.175399999833,
+          "underlying_need": "no service need identified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "no specific service",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 4708.5167999975965,
+          "underlying_need": "no inferred service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "none",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 3041.9477999967057,
+          "underlying_need": "no specific service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 3388.7975000034203,
+          "underlying_need": "no specific service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 3897.1291999987443,
+          "underlying_need": "none",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        },
+        {
+          "ok": true,
+          "latency_ms": 2449.046499998076,
+          "underlying_need": "not specified",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.0
+        },
+        {
+          "ok": true,
+          "latency_ms": 3201.547799995751,
+          "underlying_need": "no specific service need",
+          "categories_raw": [],
+          "categories_valid": [],
+          "hallucinated": [],
+          "expanded_query": "",
+          "exclusions": [
+            "WhatsApp bot companies"
+          ],
+          "confidence": 0.1
+        }
+      ]
+    }
+  ]
+}

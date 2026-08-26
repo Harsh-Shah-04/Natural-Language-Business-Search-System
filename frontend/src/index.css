@@ -24,7 +24,6 @@
   --danger-text: #b03024;
   --danger-bg: #fdecea;
   --danger-border: #f5c6c0;
-  --highlight: #fff3bf;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
   --maxw: 1120px;
@@ -74,14 +73,6 @@ button:disabled {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-/* Keyword highlight inside result text. */
-.hl {
-  background: var(--highlight);
-  color: inherit;
-  border-radius: 2px;
-  padding: 0 1px;
 }
 
 /* ---- 2. Layout & nav -------------------------------------- */
