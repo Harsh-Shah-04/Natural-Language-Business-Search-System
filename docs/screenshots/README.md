@@ -8,7 +8,8 @@ here; none have been captured yet.
 | Filename | What it should show |
 |---|---|
 | `search-page.png` | Search page in its idle state, before any query. |
-| `search-results.png` | Results for a real query, with keyword highlighting visible in the cards. |
+| `search-results.png` | A situational query with the *"I understood you need…"* panel above the cards. |
+| `intent-negation.png` | A negation query, showing the `Excluding:` line and that the excluded category is gone. |
 | `filters.png` | Results narrowed by at least one filter, with the Clear filters button visible. |
 | `registration.png` | Registration form showing the three grouped sections and required-field markers. |
 | `responsive-mobile.png` | Mobile layout (~390px): single-column cards, full-width nav. |
@@ -22,8 +23,15 @@ here; none have been captured yet.
    ```
    Open <http://localhost:5173>.
 2. **search-page** — capture before searching.
-3. **search-results** — search `eco friendly packaging for restaurants`. The
-   matched terms render highlighted inside the result cards.
+3. **search-results** — search `my employees keep clicking suspicious links and
+   I'm worried someone will steal company data`. Capture the intent panel (need,
+   category chips, provenance line) together with the results it produced. Note
+   there is deliberately **no** keyword highlighting — see the root README for
+   why it was removed.
+3b. **intent-negation** — search `I don't want cybersecurity companies. I need
+   someone to train my employees so they don't fall for scams.` Capture the
+   `Excluding: …` line and the results: Corporate Training at the top, no
+   Cybersecurity anywhere.
 4. **filters** — with results on screen, set *State* to a real value (for example
    `Maharashtra`) and capture the narrowed set.
 5. **registration** — switch to the Register tab and capture the grouped form.

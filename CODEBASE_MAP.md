@@ -90,15 +90,38 @@ Intern_assignment/
 | `eval.py` | Run golden-query evaluation (P@K, R@K, MRR) |
 | `eval_dataset.py` | 30 labeled queries across 6 categories |
 | `verify_atlas_spike.py` | Early Atlas connectivity / index smoke check |
+| `build_taxonomy.py` | Generate `app/taxonomy.json` from the seed dataset (asserts the per-category invariant) |
+| `test_contextual_search.py` | End-to-end suite: positive, negation, unmappable negation, keyword, symptom |
+| `measure_intent.py` | Classifier accuracy + the evidence for its similarity gate |
+| `measure_intent_determinism.py` | Repeatability: N identical calls per query, agreement + hallucination check |
+| `measure_intent_expansion.py` | Five expansion arms (raw / prose / taxonomy / combined), both query classes |
+| `measure_expansion_retrieval.py` | Is BM25 still worth keeping after expansion? vector vs hybrid matrix |
+| `measure_rerank_policy.py` | `always` vs `never` vs `intent-gated`, both query classes |
+| `measure_situational_baseline.py` | Symptom-query benchmark (the golden set cannot measure this class) |
+| `compute_metric_ceiling.py` | Proves the golden set sits at 97.7% of its mathematical maximum |
+| `intent_cache.py` | File-backed intent cache **for measurement scripts** — one LLM call per unique query, ever |
 
 ### Other backend files
 
 | Path | Role |
 |---|---|
 | `pyproject.toml` / `uv.lock` | Python deps (`uv`) |
-| `.env.example` | `MONGODB_URI`, `DB_NAME`, optional `RERANK_ENABLED`, CORS |
+| `.env.example` | `MONGODB_URI`, `DB_NAME`, CORS, and the optional `LLM_*` / `INTENT_*` / `RERANK_*` block |
 | `README.md` | Backend-focused setup and milestone notes |
-| `eval_reports/` | Saved eval reports (evidence for ranking choices) |
+| `eval_reports/` | Saved evidence for every ranking choice — see below |
+
+### Evidence files — `backend/eval_reports/`
+
+| File | What it proves |
+|---|---|
+| `report_*.md` | Golden-set evaluation, 4 systems (vector / hybrid / tuned / reranked) |
+| `baseline_situational_20260825.md` | Symptom-query baseline; the metric-ceiling and QA-pollution findings |
+| `situational_baseline.json` | Per-query symptom results, rerank on vs off |
+| `intent_determinism.json` | 100 identical calls: categories stable, prose is not |
+| `intent_expansion.json` | Five expansion arms across both query classes |
+| `expansion_retrieval.json` | Vector vs hybrid after expansion (why BM25 stays) |
+| `rerank_policy.json` | The three reranking policies |
+| `intent_cache.json` | Cached LLM intents, so measurements re-run at zero API cost |
 
 ---
 
@@ -143,7 +166,8 @@ Intern_assignment/
 |---|---|
 | `SearchBar.tsx` | Query input + submit |
 | `FilterPanel.tsx` / `FilterSelect.tsx` | Filter dropdowns |
-| `ResultsList.tsx` / `ResultCard.tsx` | Result cards, scores, matched_via |
+| `IntentPanel.tsx` | *"I understood you need…"* — inferred need, category chips, exclusions, provenance |
+| `ResultsList.tsx` / `ResultCard.tsx` | Result cards, scores, matched_via (plain text — highlighting was removed) |
 | `StatusMessage.tsx` | Empty / loading / error messages |
 | `FormField.tsx` | Text / textarea / select for registration |
 
@@ -169,6 +193,9 @@ Intern_assignment/
 | `docs/DEMO_SCRIPT.md` | Demo walkthrough | Live demo steps |
 | `docs/PROJECT_SUMMARY.md` | Short overview | Elevator + stack |
 | `docs/screenshots/README.md` | Screenshot capture guide | UI evidence |
+| `docs/designs/contextual-intent-search.md` | Reviewer / engineer | The M6 design: problem, approaches considered, decision log |
+| `docs/MEETING_STUDY_BRIEF.md` | Context | Prep notes for the review conversation |
+| `CODEBASE_MAP.md` | Reviewer | This file |
 
 ---
 
@@ -176,16 +203,28 @@ Intern_assignment/
 
 ```
 Query
+  │
+  ├─→ INTENT (llm → fixture → classifier, cached)
+  │      ├─ service_categories ─→ taxonomy vocabulary ─┐
+  │      └─ exclusions ─→ resolve_categories() ─→ $nin │
+  │                                                     │
+  ▼                                                     ▼
+raw query + taxonomy vocabulary            (applied to both arms)
   ├─→ embed (bge-small) ──→ Atlas $vectorSearch ──┐
   │                                                ├─→ Weighted RRF fusion
   └─→ Atlas $search (name + keywords + …) ─────────┘
                          │
                          ▼
-              optional cross-encoder rerank (top 20)
+          rerank ONLY if the query names a service
                          │
                          ▼
-                   top N results (+ filters if set)
+       top N results (+ filters if set) + intent for display
 ```
+
+**Trust boundary:** the taxonomy is generated from the checked-in seed dataset,
+never from the database — `POST /api/businesses` is unauthenticated, so a
+collection-derived taxonomy would let a stranger put text in every user's LLM
+prompt. Every category a model returns is re-checked with `is_known_category()`.
 
 **Name lookup note:** `business_name` is in embedding text, keyword paths, and the Atlas search index so registered businesses are findable by exact name even when the description does not repeat the name.
 
@@ -196,7 +235,14 @@ Query
 | Variable | Where | Meaning |
 |---|---|---|
 | `MONGODB_URI` / `DB_NAME` | `backend/.env` | Atlas connection |
-| `RERANK_ENABLED` | `backend/.env` (optional, default true) | Turn cross-encoder on/off |
+| `RERANK_ENABLED` | `backend/.env` (optional, default true) | Kill switch for the cross-encoder; wins over the policy |
+| `RERANK_POLICY` | optional, default `intent-gated` | `intent-gated` \| `always` \| `never` — rerank only queries that name a service |
+| `INTENT_PROVIDER` | optional, default `auto` | `auto` (llm → fixture → classifier), `llm`, `embedding`, `fixture`, `off` |
+| `INTENT_EXPANSION_ENABLED` | optional, default `true` | Widen retrieval with the inferred categories' taxonomy vocabulary |
+| `INTENT_CACHE_SIZE` / `INTENT_CACHE_TTL_SECONDS` | optional, `512` / `3600` | Bounds on the in-process intent cache |
+| `LLM_API_KEY` | `backend/.env` (optional) | **Absent = no LLM, not an error.** Never commit it. |
+| `LLM_PROVIDER` / `LLM_MODEL` / `LLM_BASE_URL` | optional | `anthropic` or `openai`-compatible; verified against DeepSeek by config alone |
+| `LLM_MAX_TOKENS` / `LLM_TIMEOUT_SECONDS` | optional, `400` / `6` | **Raise to ~1500 / 45 for reasoning models** |
 | `CORS_ALLOW_ORIGINS` | `backend/.env` (optional) | Frontend origins |
 | `VITE_API_BASE_URL` | `frontend/.env` | Backend URL for the UI |
 
