@@ -1,9 +1,10 @@
-# Production image for Hugging Face Spaces (Docker SDK).
+# Production image for Railway (portable to any container host).
 #
-# Chosen because this backend holds BOTH the bge-small embedder and the
-# ms-marco cross-encoder resident (~1GB with torch), which does not fit the
-# 512MB free tiers the README warns about. Keeping both loaded is what lets
-# RERANK_ENABLED stay at its default `true`, so deployed ranking matches local.
+# Sized for a host with ~1GB+ RAM, because this backend holds BOTH the
+# bge-small embedder and the ms-marco cross-encoder resident. That does not
+# fit the 512MB free tiers the README warns about, and keeping both loaded is
+# what lets RERANK_ENABLED stay at its default `true`, so deployed ranking
+# matches the local baseline exactly.
 #
 # torch comes from PyTorch's CPU index rather than PyPI. The PyPI linux wheel
 # drags in ~43 nvidia-*/cuda-* packages (several GB) that this CPU-only host
@@ -11,8 +12,8 @@
 # the Windows dev machine already runs, where no CUDA payload exists either.
 FROM python:3.11-slim-bookworm
 
-# HF Spaces runs containers as UID 1000. Create that user up front so the
-# model cache and app directory are writable at runtime.
+# Run as a non-root user, and keep the model cache inside its home so the
+# weights baked in below are readable at runtime.
 RUN useradd -m -u 1000 user
 
 ENV HOME=/home/user \
@@ -51,15 +52,15 @@ COPY --chown=user:user app ./app
 
 USER user
 
-# Bake the weights into the image. Without this a cold Space start spends its
-# first request downloading ~230MB from the Hub; app/main.py's background
-# warm-up threads then find them already on disk.
+# Bake the weights into the image. Without this a cold start spends its first
+# request downloading ~230MB from the Hub; app/main.py's background warm-up
+# threads then find them already on disk.
 RUN python -c "\
 from sentence_transformers import SentenceTransformer, CrossEncoder; \
 SentenceTransformer('BAAI/bge-small-en-v1.5'); \
 CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
-EXPOSE 7860
+EXPOSE 8000
 
-# HF Spaces routes to app_port (7860, set in the Space README front-matter).
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
+# Railway injects PORT; 8000 is the local-docker default.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
