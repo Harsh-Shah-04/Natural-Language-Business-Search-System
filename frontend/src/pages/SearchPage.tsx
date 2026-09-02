@@ -5,6 +5,7 @@ import { IntentPanel } from '../components/IntentPanel';
 import { ResultsList } from '../components/ResultsList';
 import { SearchBar } from '../components/SearchBar';
 import { StatusMessage } from '../components/StatusMessage';
+import { WeakMatchNotice, isWeakMatch } from '../components/WeakMatchNotice';
 import { useFilterOptions } from '../hooks/useFilterOptions';
 import { useSearch } from '../hooks/useSearch';
 import type { FilterField, SearchFilters } from '../types/api';
@@ -102,6 +103,13 @@ export function SearchPage({ trigger, filtersRefreshNonce = 0 }: SearchPageProps
             pairing is exactly how a user tells "misread me" from "has no such
             business". Absent whenever the backend returned no intent. */}
         {status === 'success' && intent && <IntentPanel intent={intent} />}
+
+        {/* Sits between the intent panel and the results: the list is still
+            rendered, just qualified. See isWeakMatch for why both signals are
+            required. */}
+        {status === 'success' && isWeakMatch(results, intent) && (
+          <WeakMatchNotice />
+        )}
 
         {status === 'success' &&
           (results.length > 0 ? (

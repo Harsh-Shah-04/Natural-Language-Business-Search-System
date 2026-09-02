@@ -7,8 +7,9 @@ Railway trial is spent. See `deploy/README.md` for the rejected alternatives.
 
 | Piece | Where | Notes |
 | --- | --- | --- |
-| Frontend | Vercel (static `dist/`) | Permanent URL, survives reboots |
+| Frontend | Vercel — https://business-search-inky.vercel.app | Permanent URL, survives reboots |
 | Backend | local uvicorn + Cloudflare quick tunnel | URL changes on every tunnel restart |
+| Current tunnel | `https://tons-resolve-hydrogen-tramadol.trycloudflare.com` | Live as of 2026-09-02; dies if this machine sleeps |
 | Database | existing MongoDB Atlas cluster | unchanged |
 | LLM | DeepSeek via the OpenAI-compatible path | unchanged |
 
