@@ -109,8 +109,8 @@ RRF_K = 60
 # (contributes to matched_via="both"). Chosen as a reasoned starting point
 # from the eval findings, not grid-searched; validated by re-running
 # scripts/eval.py after this change (see backend/README.md).
-RRF_WEIGHT_VECTOR = 0.7
-RRF_WEIGHT_KEYWORD = 0.3
+RRF_WEIGHT_VECTOR = 1
+RRF_WEIGHT_KEYWORD = 0
 
 # M4.1.1: keyword score-threshold gating. RRF is rank-based and blind to
 # score magnitude — a keyword hit at rank 30-of-30 with a near-zero
@@ -122,7 +122,7 @@ RRF_WEIGHT_KEYWORD = 0.3
 # at all. 0.3 is a conservative starting point (discards clearly-weak tail
 # matches, keeps legitimate partial multi-term matches); validated the
 # same way as the RRF weights above.
-KEYWORD_SCORE_THRESHOLD_RATIO = 0.3
+KEYWORD_SCORE_THRESHOLD_RATIO = 0
 
 # M4.2: cross-encoder reranking. When enabled, fusion returns a wider pool
 # (RERANK_TOP_N) than the requested limit, the cross-encoder rescores that
@@ -359,11 +359,22 @@ def search_businesses(
             vector_future = executor.submit(
                 _vector_search, businesses, query_vector, pool_size, match_stage
             )
-            keyword_future = executor.submit(
-                _keyword_search, businesses, query, pool_size, match_stage
-            )
+            # A zero keyword weight means keyword retrieval cannot change the
+            # ranking, so skip the $search query entirely rather than fusing a
+            # list that contributes nothing. Weight alone was not enough: RRF
+            # still admitted keyword-only documents into the fused set (scoring
+            # 0, but occupying result slots) and still recorded "keyword" as a
+            # source, so every such row displayed a "Semantic + Keyword" badge
+            # for a signal that had no effect. Restore RRF_WEIGHT_KEYWORD above
+            # to bring hybrid retrieval back; nothing else needs changing.
+            if RRF_WEIGHT_KEYWORD > 0:
+                keyword_future = executor.submit(
+                    _keyword_search, businesses, query, pool_size, match_stage
+                )
+                keyword_results = keyword_future.result()
+            else:
+                keyword_results = []
             vector_results = vector_future.result()
-            keyword_results = keyword_future.result()
     except (PyMongoError, RuntimeError) as e:
         # RuntimeError covers get_db() failing before a query is even
         # attempted (e.g. MONGODB_URI unset) — that's a backend-unavailable

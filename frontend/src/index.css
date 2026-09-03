@@ -484,38 +484,6 @@ button:disabled {
 }
 
 /* ---- 6. Status states ------------------------------------- */
-/* Weak-match notice: shown above the results when the intent layer had no
-   opinion and nothing matched a keyword, i.e. the ranking is nearest-neighbour
-   noise. Warmer than the accent used by the intent panel so the two read as
-   different signals when they appear together. */
-.weak-match {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 12px 14px;
-  border: 1px solid #f0d9b5;
-  border-left-width: 3px;
-  border-left-color: var(--keyword);
-  border-radius: var(--radius);
-  background: #fdf6ec;
-  color: #7a4a00;
-}
-
-.weak-match__icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--keyword);
-}
-
-.weak-match__text {
-  margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
 .status-message {
   display: flex;
   flex-direction: column;
