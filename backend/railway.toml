@@ -1,0 +1,14 @@
+# Railway builds this directory. Set the service Root Directory to `backend/`
+# so this file and the Dockerfile sit at the build root.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# /health returns as soon as uvicorn is up. The models load in background
+# threads (app/main.py), so readiness is /health/model, not this — a long
+# timeout here would only mask a genuinely dead process.
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
